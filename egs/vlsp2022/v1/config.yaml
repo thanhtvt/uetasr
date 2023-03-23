@@ -1,0 +1,241 @@
+egs_name: v1
+data_dir: .
+vocab_dir: .
+
+text_encoder: !new:uetasr.featurizers.text.Subword
+    model_prefix: vocabs/subword_vietnamese_500
+    data_path: data/transcript_train_labeled.txt
+    character_coverage: 1.0
+    model_type: bpe # word bpe unigram char
+    num_threads: 16
+    unk_id: 1
+    pad_id: 0
+    eos_id: -1
+    unk_piece: <unk>
+    pad_piece: <blank>
+    eos_piece: </s>
+    vocab_size: 500
+
+audio_encoder: !new:uetasr.featurizers.audio.LogMelSpectrogram
+    fs: 16000
+    n_fft: 512
+    win_length: 400
+    hop_length: 160
+    n_mels: 80
+    fmin: 0
+    fmax: 8000
+    htk: False
+
+gain: !new:uetasr.augmentors.audio.Gain
+    prob: 0.5
+    min_gain: 6
+    max_gain: 12
+
+# gaussian_noise: !new:uetasr.augmentors.noise.GaussianNoise
+#     prob: 0.2
+#     min_gaussian_snr: 10
+#     max_gaussian_snr: 60
+
+time_stretch: !new:uetasr.augmentors.audio.TimeStretch
+    prob: 0.3
+    min_speed_rate: 0.8
+    max_speed_rate: 1.25
+
+pitch_shift: !new:uetasr.augmentors.audio.PitchShift
+    prob: 0.3
+    min_semitones: -8
+    max_semitones: 8
+
+audio_augmentor: !new:uetasr.augmentors.Augmentor
+  augmentors:
+        - !ref <gain>
+        - !ref <time_stretch>
+        - !ref <pitch_shift>
+
+time_mask: !new:uetasr.augmentors.feature.TimeMask
+    prob: 0.6
+    time_masking_ratio: 0.05
+    time_mask_num: 5
+
+freq_mask: !new:uetasr.augmentors.feature.FrequencyMask
+    prob: 0.6
+    frequency_masking_para: 27
+    frequency_mask_num: 2
+
+feature_augmentor: !new:uetasr.augmentors.Augmentor
+    augmentors:
+        - !ref <time_mask>
+        - !ref <freq_mask>
+
+tf_string: !name:tensorflow.string
+
+train_data: !new:tensorflow.data.experimental.CsvDataset
+    filenames:
+        - data/labeled_train.tsv
+    header: True
+    field_delim: "\t"
+    select_cols: [0, 2]
+    record_defaults: [!ref <tf_string>, !ref <tf_string>]
+
+train_loader: !new:uetasr.dataloaders.asr.ASRDataloader
+    data: !ref <train_data>
+    text_encoder: !ref <text_encoder>
+    audio_encoder: !ref <audio_encoder>
+    audio_augmentor: !ref <audio_augmentor>
+    feature_augmentor: !ref <feature_augmentor>
+    num_parallel_calls: -1
+    use_ctc_target: True
+    shuffle: True
+    shuffle_buffer_size: 1800000
+    audio_type: wav
+    audio_max_length: 35
+    audio_min_length: 1
+    text_max_length: 1000
+    text_min_length: 1
+    use_bucket: True
+    bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
+    bucket_batch_sizes: [32, 16, 8, 8, 4, 4, 2, 2]
+    batch_size: 8
+    teacher_forcing: True
+    drop_remainder: True
+
+dev_data: !new:tensorflow.data.experimental.CsvDataset
+    filenames:
+        - data/labeled_val.tsv
+    header: True
+    field_delim: "\t"
+    select_cols: [0, 2]
+    record_defaults: [!ref <tf_string>, !ref <tf_string>]
+
+dev_loader: !new:uetasr.dataloaders.asr.ASRDataloader
+    data: !ref <dev_data>
+    text_encoder: !ref <text_encoder>
+    audio_encoder: !ref <audio_encoder>
+    # audio_augmentor: !ref <audio_augmentor>
+    num_parallel_calls: -1
+    use_ctc_target: True
+    shuffle: False
+    audio_max_length: 35
+    audio_min_length: 1
+    text_max_length: 500
+    text_min_length: 1
+    use_bucket: True
+    bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
+    bucket_batch_sizes: [32, 16, 8, 8, 4, 4, 2, 2]
+    batch_size: 4
+    teacher_forcing: True
+    drop_remainder: True
+
+cmvn_loader: !new:uetasr.dataloaders.audio.AudioDataloader
+    data_path: data/cmvn.tsv
+    audio_encoder: !ref <audio_encoder>
+    num_parallel_calls: -1
+    shuffle: False
+    audio_max_length: 35
+    audio_min_length: 1
+    sample_rate: 16000
+
+d_model: 256
+
+encoder_model: !new:uetasr.models.encoders.Conformer
+    num_features: 80
+    window_size: 1
+    d_model: !ref <d_model>
+    input_layer: vgg2l
+    pos_enc_layer_type: rel_pos
+    dropout_rate_pos_enc: 0.2
+    selfattention_layer_type: rel_selfattn
+    attention_heads: 4
+    dropout_rate_att: 0.1
+    dropout_rate_pos_wise: 0.1
+    dropout_rate: 0.1
+    positionwise_layer_type: linear
+    linear_units: 512
+    conv_mod_kernel: 31
+    num_blocks: 16
+    use_macaron: True
+    use_cnn_module: True
+    eps_layer_norm: 0.000000000001
+
+decoder_model: !new:uetasr.models.decoders.RNNDecoder
+    vocab_size: !ref <text_encoder.vocab_size>
+    embedding_dim: 256
+    num_layers: 1
+    hidden_dim: !ref <d_model>
+    dropout_embed: 0.2
+    dropout_rnn: 0.1
+    rnn_type: LSTM
+
+jointer_model: !new:uetasr.layers.jointer.RNNTJointer
+    encoder_dim: !ref <d_model>
+    decoder_dim: !ref <d_model>
+    hidden_dim: 256
+    output_dim: !ref <text_encoder.vocab_size>
+
+ctc_lin: !new:tensorflow.keras.layers.Dense
+    units: !ref <text_encoder.vocab_size>
+
+model: !new:uetasr.models.rnnt.RNNT
+    encoder: !ref <encoder_model>
+    decoder: !ref <decoder_model>
+    jointer: !ref <jointer_model>
+    ctc_lin: !ref <ctc_lin>
+    ctc_dropout: 0.1
+    use_cmvn: True
+    # audio_preprocess: !ref <audio_encoder>
+
+rnnt_loss: !new:uetasr.losses.rnnt.RnntLoss
+    blank: !ref <text_encoder.pad_id>
+    use_tf: True
+
+ctc_loss: !new:uetasr.losses.ctc.CtcLoss
+    blank: !ref <text_encoder.pad_id>
+    use_tf: True
+
+lr: !new:uetasr.trainers.optimizers.schedules.WarmupLRSchedule
+    warmup_steps: 15000
+    accum_steps: 1
+    factor: 500
+
+lm: null
+
+decoder: !new:uetasr.searchers.BeamSearch
+    decoder: !ref <decoder_model>
+    joint_network: !ref <jointer_model>
+    text_decoder: !ref <text_encoder>
+    beam_size: 10
+    score_norm: True
+    lm: !ref <lm>
+    lm_weight: 0.1
+
+# beam_decoder: !new:uetasr.searchers.BeamRNNT
+#   decoder: !ref <decoder_model>
+#   jointer: !ref <jointer_model>
+#   text_decoder: !ref <text_encoder>
+#   max_symbols_per_step: 10
+#   alpha: 0.6
+#   beam: 10
+#   # lm: !ref <lm_model>
+#   lm: null
+#   lmwt: 0.3
+#   verbose: False
+
+trainer: !new:uetasr.trainers.trainer.ASRTrainer
+    model: !ref <model>
+    learning_rate: !ref <lr>
+    beam_decoder: !ref <decoder>
+    optim: adamw
+    weight_decay: 0.000001
+    gradient_clipvalue: 5.0
+    losses: [!ref <rnnt_loss>, !ref <ctc_loss>]
+    loss_weights: [1.0, 0.3]
+    num_epochs: 2000
+    train_num_samples: 5000
+    accum_steps: 1
+    tb_log_dir: !ref <egs_name>/logs
+    tb_update_freq: 1000
+    tb_profile_batch: 0
+    pretrained_model: null
+    checkpoint_path: !ref <egs_name>/checkpoints/ckpt-epoch-{epoch:02d}.ckpt
+    ckpt_save_freq: epoch
+    backup_dir: !ref <egs_name>/states
