@@ -31,5 +31,6 @@ class Gain(PreprocessingLayer):
                                  minval=0,
                                  maxval=1,
                                  dtype=tf.float32)
-        return tf.cond(prob <= self.prob, lambda: augmented_audio,
+        return tf.cond(prob <= self.prob,
+                       lambda: augmented_audio,
                        lambda: audio)

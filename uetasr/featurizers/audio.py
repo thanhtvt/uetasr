@@ -9,7 +9,9 @@ from typing import List, Tuple, Union
 
 class BaseFeaturizer(PreprocessingLayer):
     def __init__(self, name: str = "base_featurizer", **kwargs):
-        super(BaseFeaturizer, self).__init__(trainable=False, name=name, **kwargs)
+        super(BaseFeaturizer, self).__init__(trainable=False,
+                                             name=name,
+                                             **kwargs)
 
     def call(
         self,
@@ -99,8 +101,11 @@ class MFCC(BaseFeaturizer):
             mfccs = feature_augmentor(mfccs)
 
         if lengths is not None:
-            lengths = tf.cast((-(-lengths // self.frame_step) - \
-                    self.window_size) // self.window_step + 1, dtype=tf.int32)
+            lengths = tf.cast(
+                (-(-lengths // self.frame_step) - self.window_size)
+                // self.window_step + 1,
+                dtype=tf.int32
+            )
             return mfccs, lengths
 
         return mfccs
@@ -223,10 +228,10 @@ class FBank(BaseFeaturizer):
                                                       axis=-2)
             else:
                 begin = [0, 0, 0, 0] if len(audio.shape) > 1 else [0, 0, 0]
-                end = [-1, -1, -1, -1
-                       ] if len(audio.shape) > 1 else [-1, -1, -1]
+                end = [-1, -1, -1, -1] if \
+                    len(audio.shape) > 1 else [-1, -1, -1]
                 strides = [1, self.window_step, 1, 1] if len(audio.shape) > 1 \
-                            else [self.window_step, 1, 1]
+                    else [self.window_step, 1, 1]
                 axis = 1 if len(audio.shape) > 1 else 0
 
                 log_mel_spectrograms = tf.strided_slice(tftext.sliding_window(
@@ -240,8 +245,11 @@ class FBank(BaseFeaturizer):
             log_mel_spectrograms = log_mel_spectrograms
 
         if lengths is not None:
-            lengths = tf.cast((-(-lengths // self.frame_step) -
-                    self.window_size) // self.window_step + 1, dtype=tf.int32)
+            lengths = tf.cast(
+                (-(-lengths // self.frame_step) - self.window_size)
+                // self.window_step + 1,
+                dtype=tf.int32
+            )
             return log_mel_spectrograms, lengths
         return log_mel_spectrograms
 
@@ -262,6 +270,7 @@ class FBank(BaseFeaturizer):
         return config
 
 
+@tf.function
 def compute_fbanks(audio: Union[tf.Tensor, List, np.ndarray],
                    frame_length: int = 512,
                    frame_step: int = 160,
