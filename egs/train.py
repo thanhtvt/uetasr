@@ -45,7 +45,8 @@ args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
 
 if args.mxp:
-    tf.keras.mixed_precision.set_global_policy('mixed_float16')
+    policy = tf.keras.mixed_precision.Policy('mixed_float16')
+    tf.keras.mixed_precision.set_global_policy(policy)
 
 
 def train(config_file):

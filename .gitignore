@@ -149,6 +149,7 @@ checkpoints/
 logs/
 states/
 extras/
+wandb/
 *.model
 *.vocab
 

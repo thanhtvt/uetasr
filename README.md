@@ -1,12 +1,14 @@
 <div align="center">
 
-# UETASR
+<h1> UETASR
 
 [![python](https://img.shields.io/badge/-Python_3.8_%7C_3.9_%7C_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![tensorflow](https://img.shields.io/badge/TensorFlow_2.9+-orange?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/ashleve/lightning-hydra-template#license)
 
-## An Automatic Speech Recognition toolkit in TensorFlow 2
+</h1>
+
+<h2> An Automatic Speech Recognition toolkit in TensorFlow 2 </h2>
 
 _Suggestions are always welcome!_
 
@@ -15,12 +17,18 @@ _Suggestions are always welcome!_
 <br>
 
 ## TODO List
+- [x] Add more augmentation methods (e.g., Telephony, etc.).
+- [x] Support [WanDB](https://wandb.ai) for logging.
+- [ ] Integrate language model (e.g., KenLM, RNN, Transformer) for inference.
+- [x] Option to enable XLA compilation.
+- [ ] Add metrics (WER/CER) computation during validation.
 - [ ] Add mixed-precision training.
 - [ ] Add TFRecord support for faster data loading.
 - [ ] Add TFLite conversion.
 - [ ] Support multi-batch inference for transducer models.
 - [ ] Better configuration management (follow [Hydra](https://github.com/facebookresearch/hydra)).
 - [ ] Add demo on [HuggingFace spaces](https://huggingface.co/spaces).
+- [ ] Support Conformer-1 model ([reference](https://www.assemblyai.com/blog/conformer-1/)).
 
 ## Key features
 
@@ -45,6 +53,7 @@ UETASR provides various useful tools to speed up and facilitate research on spee
 UETASR provides efficient and GPU-friendly **on-the-fly** speech augmentation pipelines and acoustic feature extraction:
 - Augmentation:
     + Adaptive SpecAugment ([paper](https://arxiv.org/abs/1912.05533))
+    + SpliceOut ([paper](https://arxiv.org/abs/2110.00046))
     + Gain, Time Stretch, Pitch Shift, etc. ([paper](https://www.isca-speech.org/archive/interspeech_2015/ko15_interspeech.html))
 - Featurization:
     + MFCC, Fbank, Spectrogram, etc.
@@ -115,4 +124,4 @@ docker run -it --name uetasr --gpus all -v <workspace_dir>:/workspace uetasr:v1.
 ## References & Credits
 1. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
 2. [TensorFlowASR: Almost State-of-the-art Automatic Speech Recognition in Tensorflow 2](https://github.com/TensorSpeech/TensorFlowASR)
-3. [namnv1906](https://github.com/namnv1906/) (for the initial version of this toolkit)
+3. [namnv1906](https://github.com/namnv1906/) (for the guidance & initial version of this toolkit)

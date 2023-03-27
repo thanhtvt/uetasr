@@ -49,8 +49,8 @@ pitch_shift: !new:uetasr.augmentors.audio.PitchShift
 audio_augmentor: !new:uetasr.augmentors.Augmentor
   augmentors:
         - !ref <gain>
-        - !ref <time_stretch>
-        - !ref <pitch_shift>
+        # - !ref <time_stretch>
+        # - !ref <pitch_shift>
 
 time_mask: !new:uetasr.augmentors.feature.TimeMask
     prob: 0.6
@@ -94,7 +94,7 @@ train_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     text_min_length: 1
     use_bucket: True
     bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
-    bucket_batch_sizes: [32, 16, 8, 8, 4, 4, 2, 2]
+    bucket_batch_sizes: [16, 8, 8, 4, 4, 2, 2, 2]
     batch_size: 8
     teacher_forcing: True
     drop_remainder: True
@@ -121,7 +121,7 @@ dev_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     text_min_length: 1
     use_bucket: True
     bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
-    bucket_batch_sizes: [32, 16, 8, 8, 4, 4, 2, 2]
+    bucket_batch_sizes: [16, 8, 8, 4, 4, 2, 2, 2]
     batch_size: 4
     teacher_forcing: True
     drop_remainder: True
@@ -172,8 +172,10 @@ jointer_model: !new:uetasr.layers.jointer.RNNTJointer
     hidden_dim: 256
     output_dim: !ref <text_encoder.vocab_size>
 
-ctc_lin: !new:tensorflow.keras.layers.Dense
-    units: !ref <text_encoder.vocab_size>
+# ctc_lin: !new:tensorflow.keras.layers.Dense
+#     units: !ref <text_encoder.vocab_size>
+
+ctc_lin: null
 
 model: !new:uetasr.models.rnnt.RNNT
     encoder: !ref <encoder_model>
@@ -188,14 +190,14 @@ rnnt_loss: !new:uetasr.losses.rnnt.RnntLoss
     blank: !ref <text_encoder.pad_id>
     use_tf: True
 
-ctc_loss: !new:uetasr.losses.ctc.CtcLoss
-    blank: !ref <text_encoder.pad_id>
-    use_tf: True
+# ctc_loss: !new:uetasr.losses.ctc.CtcLoss
+#     blank: !ref <text_encoder.pad_id>
+#     use_tf: True
 
 lr: !new:uetasr.trainers.optimizers.schedules.WarmupLRSchedule
-    warmup_steps: 15000
+    warmup_steps: 10000
     accum_steps: 1
-    factor: 500
+    factor: 1000
 
 lm: null
 
@@ -220,6 +222,22 @@ decoder: !new:uetasr.searchers.BeamSearch
 #   lmwt: 0.3
 #   verbose: False
 
+wer_metrics: !new:uetasr.metrics.WordErrorRate
+    accumulate: True
+cer_metrics: !new:uetasr.metrics.CharacterErrorRate
+    accumulate: True
+
+wandb_config:
+    vocab_size: !ref <text_encoder.vocab_size>
+    audio_augment: [gain, pitch_shift]
+    feat_augment: [time_mask, feat_mask]
+    batch_size: !ref <train_loader[bucket_batch_sizes]>
+    model: conformer-small
+    loss: [rnnt]
+    warmup_steps: !ref <lr.warmup_steps>
+    accum_steps: !ref <lr.accum_steps>
+    lm: !ref <lm>
+
 trainer: !new:uetasr.trainers.trainer.ASRTrainer
     model: !ref <model>
     learning_rate: !ref <lr>
@@ -227,10 +245,12 @@ trainer: !new:uetasr.trainers.trainer.ASRTrainer
     optim: adamw
     weight_decay: 0.000001
     gradient_clipvalue: 5.0
-    losses: [!ref <rnnt_loss>, !ref <ctc_loss>]
-    loss_weights: [1.0, 0.3]
+    losses: [!ref <rnnt_loss>]
+    loss_weights: [1.0]
+    # metrics: [!ref <wer_metrics>, !ref <cer_metrics>]  # output shape not compatible
     num_epochs: 2000
-    train_num_samples: 5000
+    jit_compile: False
+    train_num_samples: 400
     accum_steps: 1
     tb_log_dir: !ref <egs_name>/logs
     tb_update_freq: 1000
@@ -239,3 +259,8 @@ trainer: !new:uetasr.trainers.trainer.ASRTrainer
     checkpoint_path: !ref <egs_name>/checkpoints/ckpt-epoch-{epoch:02d}.ckpt
     ckpt_save_freq: epoch
     backup_dir: !ref <egs_name>/states
+    use_wandb: True
+    wandb_project: uetasr
+    wandb_config: !ref <wandb_config>
+    wandb_log_dir: !ref <egs_name>
+    wandb_log_freq: 100

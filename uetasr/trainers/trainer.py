@@ -3,6 +3,11 @@ import os
 import tqdm
 import tensorflow as tf
 import tensorflow_addons as tfa
+try:
+    import wandb
+    have_wandb = True
+except ImportError:
+    have_wandb = False
 
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from typing import Union, List
@@ -10,6 +15,7 @@ from typing import Union, List
 from .base import BaseTrainer
 from .optimizers.accumulation import GradientAccumulator
 from .optimizers.lion import Lion
+from ..metrics.toggle import ToggleMetrics
 
 
 class ASRTrainer(BaseTrainer):
@@ -25,10 +31,11 @@ class ASRTrainer(BaseTrainer):
         weight_decay: float = 0.000001,
         gradient_clipvalue: float = 5.0,
         accum_steps: int = 1,
-        losses: List[tf.keras.layers.Layer] = [],
+        losses: List[tf.keras.losses.Loss] = [],
         loss_weights: List[float] = [],
         metrics: List[tf.keras.metrics.Metric] = [],
         num_epochs: int = 1,
+        jit_compile: bool = False,
         tb_log_dir: str = "logs",
         tb_update_freq: str = "epoch",
         tb_profile_batch: int = 0,
@@ -38,7 +45,13 @@ class ASRTrainer(BaseTrainer):
         checkpoint_path: str = "",
         ckpt_save_freq: str = "epoch",
         backup_dir: str = "train_states",
+        use_wandb: bool = False,
+        wandb_project: str = "uetasr",
+        wandb_config: dict = {},
+        wandb_log_dir: str = "wandb",
+        wandb_log_freq: int = 100,
     ):
+        # Init optimizer
         if optim == "adam":
             optimizer = tf.keras.optimizers.Adam(learning_rate,
                                                  clipvalue=gradient_clipvalue)
@@ -52,21 +65,21 @@ class ASRTrainer(BaseTrainer):
                              clipvalue=gradient_clipvalue)
         else:
             raise NotImplementedError(f"Optimizer {optim} is not implemented.")
-
         if accum_steps > 1:
             optimizer = GradientAccumulator(optimizer, accum_steps)
+
+        self.optimizer = optimizer
 
         self.model = model
 
         if pretrained_model:
             self.load_model(pretrained_model)
 
-        self.optimizer = optimizer
-
         self.model.compile(loss=losses,
                            loss_weights=loss_weights,
                            optimizer=optimizer,
-                           metrics=metrics)
+                           metrics=metrics,
+                           jit_compile=jit_compile)
 
         self.num_epochs = num_epochs
         self.train_num_samples = train_num_samples
@@ -75,6 +88,7 @@ class ASRTrainer(BaseTrainer):
         self.decoder = beam_decoder
         self.text_decoder = beam_decoder.text_decoder if beam_decoder else None
 
+        # Init callbacks
         tb_callback = tf.keras.callbacks.TensorBoard(
             log_dir=tb_log_dir,
             update_freq=tb_update_freq,
@@ -96,10 +110,23 @@ class ASRTrainer(BaseTrainer):
         backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
         self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
 
+        for m in metrics:
+            self.callbacks.append(ToggleMetrics(m))
+
         if log_filepath:
             csv_logger = tf.keras.callbacks.CSVLogger(log_filepath,
                                                       append=log_append)
             self.callbacks.append(csv_logger)
+
+        if have_wandb and use_wandb:
+            wandb.init(project=wandb_project,
+                       config=wandb_config,
+                       save_code=True,
+                       dir=wandb_log_dir,
+                       resume="auto")
+            wandb_logger = wandb.keras.WandbMetricsLogger(
+                log_freq=wandb_log_freq)
+            self.callbacks.append(wandb_logger)
 
     def train(
         self,
