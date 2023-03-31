@@ -115,6 +115,7 @@ dev_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     num_parallel_calls: -1
     use_ctc_target: True
     shuffle: False
+    reshuffle_each_iteration: True
     audio_max_length: 35
     audio_min_length: 1
     text_max_length: 500
@@ -249,6 +250,7 @@ trainer: !new:uetasr.trainers.trainer.ASRTrainer
     loss_weights: [1.0]
     # metrics: [!ref <wer_metrics>, !ref <cer_metrics>]  # output shape not compatible
     num_epochs: 2000
+    steps_per_execution: 1
     jit_compile: False
     train_num_samples: 400
     accum_steps: 1

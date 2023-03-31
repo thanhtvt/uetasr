@@ -4,6 +4,7 @@ from ..utils.adaptive_gradient_clip import adaptive_clip_grad
 
 # https://stackoverflow.com/a/66524901
 # https://keras.io/guides/customizing_what_happens_in_fit/
+# https://github.com/andreped/GradientAccumulator
 # adding this avoids needing to use custom_objects when loading model
 @tf.keras.utils.register_keras_serializable()
 class GradientAccumulateModel(tf.keras.Model):

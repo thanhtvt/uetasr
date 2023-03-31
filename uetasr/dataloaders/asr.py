@@ -21,6 +21,7 @@ class ASRDataloader(tf.data.Dataset):
                 use_ctc_target: bool = False,
                 num_parallel_calls: int = -1,
                 shuffle: bool = True,
+                reshuffle_each_iteration: bool = True,
                 use_audio_path: bool = False,
                 pad_ms: int = 0,
                 pad_segment: int = None,
@@ -46,8 +47,10 @@ class ASRDataloader(tf.data.Dataset):
         append_eos = True if text_encoder.eos_id >= 0 else False
 
         if shuffle:
-            data = data.shuffle(shuffle_buffer_size,
-                                reshuffle_each_iteration=True)
+            data = data.shuffle(
+                shuffle_buffer_size,
+                reshuffle_each_iteration=reshuffle_each_iteration
+            )
 
         data = data.map(lambda audio_path, label:
                         (audio_path, tf.io.read_file(audio_path), label),

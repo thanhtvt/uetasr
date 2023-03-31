@@ -15,7 +15,6 @@ class CTC(tf.keras.Model):
         **kwargs,
     ):
         super(CTC, self).__init__(name=name, **kwargs)
-        self.name = name
         self.encoder = encoder
         self.audio_preprocess = audio_preprocess
         self.window_size = encoder.window_size

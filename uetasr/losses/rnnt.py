@@ -27,7 +27,6 @@ class RnntLoss(tf.keras.losses.Loss):
         self.blank = blank
         self.use_logsoftmax = use_logsoftmax
         self.use_tf = use_tf
-        self.name = name
 
     def call(self, labels: Union[tf.Tensor, np.ndarray, List],
              logits: Union[tf.Tensor, np.ndarray, List]) -> tf.Tensor:

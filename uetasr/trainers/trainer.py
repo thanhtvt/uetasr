@@ -16,6 +16,8 @@ from .base import BaseTrainer
 from .optimizers.accumulation import GradientAccumulator
 from .optimizers.lion import Lion
 from ..metrics.toggle import ToggleMetrics
+from ..models.accumulators import GradientAccumulateModel
+from ..utils.common import has_devices
 
 
 class ASRTrainer(BaseTrainer):
@@ -36,6 +38,7 @@ class ASRTrainer(BaseTrainer):
         metrics: List[tf.keras.metrics.Metric] = [],
         num_epochs: int = 1,
         jit_compile: bool = False,
+        steps_per_execution: int = 1,
         tb_log_dir: str = "logs",
         tb_update_freq: str = "epoch",
         tb_profile_batch: int = 0,
@@ -65,11 +68,18 @@ class ASRTrainer(BaseTrainer):
                              clipvalue=gradient_clipvalue)
         else:
             raise NotImplementedError(f"Optimizer {optim} is not implemented.")
-        if accum_steps > 1:
-            optimizer = GradientAccumulator(optimizer, accum_steps)
+
+        if accum_steps > 1 and has_devices("GPU") > 1:
+            if has_devices("GPU") > 1:
+                optimizer = GradientAccumulator(optimizer, accum_steps)
+            elif has_devices("GPU") == 1:  # GA model is not stable multi-gpus
+                model = GradientAccumulateModel(accum_steps=accum_steps,
+                                                mixed_precision=False,
+                                                use_agc=True,
+                                                inputs=model.input,
+                                                outputs=model.output)
 
         self.optimizer = optimizer
-
         self.model = model
 
         if pretrained_model:
@@ -79,6 +89,7 @@ class ASRTrainer(BaseTrainer):
                            loss_weights=loss_weights,
                            optimizer=optimizer,
                            metrics=metrics,
+                           steps_per_execution=steps_per_execution,
                            jit_compile=jit_compile)
 
         self.num_epochs = num_epochs
@@ -249,3 +260,93 @@ class ASRTrainer(BaseTrainer):
 
     def load_model(self, checkpoint_path: str):
         self.model.load_weights(checkpoint_path).expect_partial()
+
+
+class LMTrainer(BaseTrainer):
+
+    def __init__(
+        self,
+        model: tf.keras.Model,
+        loss: tf.keras.losses.Loss,
+        learning_rate: Union[float, LearningRateSchedule],
+        optim: str = "adam",
+        weight_decay: float = 0.000001,
+        gradient_clipvalue: float = 5.0,
+        num_epochs: int = 100,
+        jit_compile: bool = False,
+        steps_per_execution: int = 1,
+        train_num_samples: int = -1,
+        dev_num_samples: int = -1,
+        tb_log_dir: str = "logs",
+        tb_update_freq: str = "epoch",
+        tb_profile_batch: int = 0,
+        pretrained_model: str = "",
+        checkpoint_path: str = "",
+        ckpt_save_freq: str = "epoch",
+        backup_dir: str = "train_states",
+    ):
+        # Init optimizer
+        if optim == "adam":
+            optimizer = tf.keras.optimizers.Adam(learning_rate,
+                                                 clipvalue=gradient_clipvalue)
+        elif optim == "adamw":
+            optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate,
+                                             weight_decay=weight_decay,
+                                             clipvalue=gradient_clipvalue)
+        elif optim == "lion":
+            optimizer = Lion(learning_rate=learning_rate,
+                             weight_decay=weight_decay,
+                             clipvalue=gradient_clipvalue)
+        else:
+            raise NotImplementedError(f"Optimizer {optim} is not implemented.")
+
+        self.optimizer = optimizer
+        self.model = model
+
+        if pretrained_model:
+            self.load_model(pretrained_model)
+
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
+                           steps_per_execution=steps_per_execution,
+                           jit_compile=jit_compile)
+
+        self.num_epochs = num_epochs
+
+        # Init callbacks
+        tb_callback = tf.keras.callbacks.TensorBoard(
+            log_dir=tb_log_dir,
+            update_freq=tb_update_freq,
+            profile_batch=tb_profile_batch
+        )
+
+        if not checkpoint_path:
+            checkpoint_path = "lm/checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
+
+        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+        checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_path,
+            save_weights_only=True,
+            save_best_only=True,
+            save_freq=ckpt_save_freq
+        )
+
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
+        self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
+
+    def train(
+        self,
+        train_loader: tf.data.Dataset,
+        dev_loader: tf.data.Dataset = None
+    ):
+        if self.train_num_samples != -1:
+            train_loader = train_loader.repeat().take(self.train_num_samples)
+
+        if self.dev_num_samples != -1 and dev_loader is not None:
+            dev_loader = dev_loader.repeat().take(self.dev_num_samples)
+
+        self.model.fit(train_loader,
+                       epochs=self.num_epochs,
+                       callbacks=self.callbacks,
+                       validation_data=dev_loader)

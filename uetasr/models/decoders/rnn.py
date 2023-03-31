@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from typing import Tuple
+from ...utils.common import get_rnn
 
 
 class RNNDecoder(tf.keras.Model):
@@ -28,7 +29,7 @@ class RNNDecoder(tf.keras.Model):
         self.use_softmax = use_softmax
         project_dim = project_dim or hidden_dim
 
-        rnn_class = self.get_rnn(rnn_type)
+        rnn_class = get_rnn(rnn_type)
         self.rnns = []
         for _ in range(num_layers):
             self.rnns.append((
@@ -103,13 +104,3 @@ class RNNDecoder(tf.keras.Model):
         states = tf.nest.flatten(states)
         states = tf.concat(states, axis=1)
         return states
-
-    def get_rnn(self, rnn_type):
-        if rnn_type.lower() == 'lstm':
-            return tf.keras.layers.LSTM
-        elif rnn_type.lower() == 'gru':
-            return tf.keras.layers.GRU
-        elif rnn_type.lower() == 'rnn':
-            return tf.keras.layers.SimpleRNN
-        else:
-            raise ValueError(f'Invalid rnn_type: {rnn_type}')
