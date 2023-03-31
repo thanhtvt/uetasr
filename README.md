@@ -3,7 +3,7 @@
 <h1> UETASR
 
 [![python](https://img.shields.io/badge/-Python_3.8_%7C_3.9_%7C_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![tensorflow](https://img.shields.io/badge/TensorFlow_2.9+-orange?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
+[![tensorflow](https://img.shields.io/badge/TensorFlow_2.8_%7C_2.9_%7C_2.10-orange?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/ashleve/lightning-hydra-template#license)
 
 </h1>
