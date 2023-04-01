@@ -1,10 +1,10 @@
 # ---------- tensorflow ---------- #
-tensorflow-gpu==2.11
-tensorflow==2.11
-tensorflow-text==2.11
+tensorflow-gpu==2.10
+tensorflow==2.10
+tensorflow-text==2.10
 tensorflow-io==0.27.0
 tensorflow-addons==0.19.0
-keras==2.11
+keras==2.10
 
 # ---------- audio ---------- #
 sentencepiece
