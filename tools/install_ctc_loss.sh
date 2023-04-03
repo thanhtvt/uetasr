@@ -4,8 +4,9 @@ cd ./extras || exit
 export CUDA_HOME=/usr/local/cuda
 
 # Install ctc_loss
-# if [ ! -d warp-ctc ]; then
-#     git clone https://github.com/namnv1906/warp-ctc.git
+if [ ! -d warp-ctc ]; then
+  git clone https://github.com/mxi-box/warp-ctc.git
+fi
 
 cd ./warp-ctc || exit
 mkdir -p build && cd build || exit
