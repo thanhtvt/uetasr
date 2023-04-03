@@ -3,8 +3,8 @@ data_dir: .
 vocab_dir: .
 
 text_encoder: !new:uetasr.featurizers.text.Subword
-    model_prefix: vocabs/subword_vietnamese_500
-    data_path: data/transcript_train_labeled.txt
+    model_prefix: vocabs/subword_librispeech_500
+    data_path: data/transcript.txt
     character_coverage: 1.0
     model_type: bpe # word bpe unigram char
     num_threads: 16
@@ -31,26 +31,9 @@ gain: !new:uetasr.augmentors.audio.Gain
     min_gain: 6
     max_gain: 12
 
-# gaussian_noise: !new:uetasr.augmentors.noise.GaussianNoise
-#     prob: 0.2
-#     min_gaussian_snr: 10
-#     max_gaussian_snr: 60
-
-time_stretch: !new:uetasr.augmentors.audio.TimeStretch
-    prob: 0.3
-    min_speed_rate: 0.8
-    max_speed_rate: 1.25
-
-pitch_shift: !new:uetasr.augmentors.audio.PitchShift
-    prob: 0.3
-    min_semitones: -8
-    max_semitones: 8
-
 audio_augmentor: !new:uetasr.augmentors.Augmentor
   augmentors:
         - !ref <gain>
-        # - !ref <time_stretch>
-        # - !ref <pitch_shift>
 
 time_mask: !new:uetasr.augmentors.feature.TimeMask
     prob: 0.6
@@ -71,7 +54,7 @@ tf_string: !name:tensorflow.string
 
 train_data: !new:tensorflow.data.experimental.CsvDataset
     filenames:
-        - data/labeled_train.tsv
+        - data/train_clean_100.tsv
     header: True
     field_delim: "\t"
     select_cols: [0, 2]
@@ -101,7 +84,8 @@ train_loader: !new:uetasr.dataloaders.asr.ASRDataloader
 
 dev_data: !new:tensorflow.data.experimental.CsvDataset
     filenames:
-        - data/labeled_val.tsv
+        - data/dev_clean.tsv
+        - data/dev_other.tsv
     header: True
     field_delim: "\t"
     select_cols: [0, 2]
@@ -173,9 +157,6 @@ jointer_model: !new:uetasr.layers.jointer.RNNTJointer
     hidden_dim: 256
     output_dim: !ref <text_encoder.vocab_size>
 
-# ctc_lin: !new:tensorflow.keras.layers.Dense
-#     units: !ref <text_encoder.vocab_size>
-
 ctc_lin: null
 
 model: !new:uetasr.models.rnnt.RNNT
@@ -185,20 +166,25 @@ model: !new:uetasr.models.rnnt.RNNT
     ctc_lin: !ref <ctc_lin>
     ctc_dropout: 0.1
     use_cmvn: True
-    # audio_preprocess: !ref <audio_encoder>
 
 rnnt_loss: !new:uetasr.losses.rnnt.RnntLoss
     blank: !ref <text_encoder.pad_id>
     use_tf: True
 
-# ctc_loss: !new:uetasr.losses.ctc.CtcLoss
-#     blank: !ref <text_encoder.pad_id>
-#     use_tf: True
+warmup_steps: 40000
+accum_steps: 4
 
-lr: !new:uetasr.trainers.optimizers.schedules.WarmupLRSchedule
-    warmup_steps: 30000
-    accum_steps: 4
-    factor: 500
+# lr: !new:uetasr.trainers.optimizers.schedules.WarmupLRSchedule
+#     warmup_steps: 40000
+#     accum_steps: 4
+#     factor: 500
+
+# lr: 0.0005
+
+lr: !new:tensorflow.keras.optimizers.schedules.CosineDecay
+    initial_learning_rate: 0.0005
+    decay_steps: 100000
+    alpha: 0.0
 
 lm: null
 
@@ -211,18 +197,6 @@ decoder: !new:uetasr.searchers.BeamSearch
     lm: !ref <lm>
     lm_weight: 0.1
 
-# beam_decoder: !new:uetasr.searchers.BeamRNNT
-#   decoder: !ref <decoder_model>
-#   jointer: !ref <jointer_model>
-#   text_decoder: !ref <text_encoder>
-#   max_symbols_per_step: 10
-#   alpha: 0.6
-#   beam: 10
-#   # lm: !ref <lm_model>
-#   lm: null
-#   lmwt: 0.3
-#   verbose: False
-
 wer_metrics: !new:uetasr.metrics.WordErrorRate
     accumulate: True
 cer_metrics: !new:uetasr.metrics.CharacterErrorRate
@@ -230,14 +204,54 @@ cer_metrics: !new:uetasr.metrics.CharacterErrorRate
 
 wandb_config:
     vocab_size: !ref <text_encoder.vocab_size>
-    audio_augment: [gain, pitch_shift]
+    audio_augment: [gain]
     feat_augment: [time_mask, feat_mask]
     batch_size: !ref <train_loader[bucket_batch_sizes]>
     model: conformer-small
+    params: 30.5M
     loss: [rnnt]
-    warmup_steps: !ref <lr.warmup_steps>
-    accum_steps: !ref <lr.accum_steps>
+    warmup_steps: !ref <warmup_steps>
+    accum_steps: !ref <accum_steps>
     lm: !ref <lm>
+
+# tb_callbacks: !new:tensorflow.keras.callbacks.TensorBoard
+#     log_dir: !ref <egs_name>/tb_logs
+#     update_freq: 1000
+#     profile_batch: 0
+
+# ckpt_callbacks: !new:tensorflow.keras.callbacks.ModelCheckpoint
+#     filepath: !ref <egs_name>/checkpoints/ckpt-epoch-{epoch:02d}.ckpt
+#     save_weights_only: True
+#     save_best_only: True
+#     save_freq: epoch
+
+# backup_callbacks: !new:tensorflow.keras.callbacks.BackupAndRestore
+#     backup_dir: !ref <egs_name>/states
+
+# cur_time: !applyref:datetime.datetime.now ["%Y-%m-%d_%H-%M-%S"]
+
+# csv_logger: !new:tensorflow.keras.callbacks.CSVLogger
+#     filename: !ref <egs_name>/logs/<cur_time><cur_time>.csv
+
+# lr_logger_callbacks: !new:uetasr.trainers.callbacks.LRLogger
+
+# wandb_callbacks: !new:uetasr.trainers.callbacks.WandbLogger
+#     tb_root_dir: !ref <tb_callbacks[log_dir]>
+#     dir: !ref <egs_name>
+#     project_name: uetasr
+#     config: !ref <wandb_config>
+#     save_code: False
+#     resume: auto
+#     log_freq: 1000
+
+# callbacks:
+#     - !ref <tb_callbacks>
+#     - !ref <ckpt_callbacks>
+#     - !ref <backup_callbacks>
+#     - !ref <lr_logger_callbacks>
+#     - !ref <wandb_callbacks>
+
+callbacks: []
 
 trainer: !new:uetasr.trainers.trainer.ASRTrainer
     model: !ref <model>
@@ -253,11 +267,13 @@ trainer: !new:uetasr.trainers.trainer.ASRTrainer
     steps_per_execution: 1
     jit_compile: False
     train_num_samples: -1
-    accum_steps: 4
-    tb_log_dir: !ref <egs_name>/logs
+    accum_steps: !ref <accum_steps>
+    callbacks: !ref <callbacks>
+    log_dir: !ref <egs_name>/logs
+    tb_log_dir: !ref <egs_name>/tb_logs
     tb_update_freq: 1000
     tb_profile_batch: 0
-    pretrained_model: null
+    pretrained_model: !ref <egs_name>/checkpoints_/ckpt-epoch-20.ckpt
     checkpoint_path: !ref <egs_name>/checkpoints/ckpt-epoch-{epoch:02d}.ckpt
     ckpt_save_freq: epoch
     backup_dir: !ref <egs_name>/states
