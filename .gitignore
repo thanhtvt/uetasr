@@ -147,6 +147,7 @@ dmypy.json
 # Running output
 checkpoints/
 logs/
+tb_logs/
 states/
 extras/
 wandb/

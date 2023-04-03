@@ -9,10 +9,12 @@ try:
 except ImportError:
     have_wandb = False
 
+from datetime import datetime
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from typing import Union, List
 
 from .base import BaseTrainer
+from .callbacks import LRLogger, TopKModelCheckpoint
 from .optimizers.accumulation import GradientAccumulator
 from .optimizers.lion import Lion
 from ..metrics.toggle import ToggleMetrics
@@ -28,7 +30,7 @@ class ASRTrainer(BaseTrainer):
         learning_rate: Union[float, LearningRateSchedule],
         beam_decoder: tf.keras.layers.Layer,
         optim: str = "adam",
-        log_filepath: str = '',
+        log_dir: str = '',
         log_append: bool = False,
         weight_decay: float = 0.000001,
         gradient_clipvalue: float = 5.0,
@@ -39,6 +41,7 @@ class ASRTrainer(BaseTrainer):
         num_epochs: int = 1,
         jit_compile: bool = False,
         steps_per_execution: int = 1,
+        callbacks: List[tf.keras.callbacks.Callback] = [],
         tb_log_dir: str = "logs",
         tb_update_freq: str = "epoch",
         tb_profile_batch: int = 0,
@@ -100,6 +103,7 @@ class ASRTrainer(BaseTrainer):
         self.text_decoder = beam_decoder.text_decoder if beam_decoder else None
 
         # Init callbacks
+        self.callbacks = callbacks
         tb_callback = tf.keras.callbacks.TensorBoard(
             log_dir=tb_log_dir,
             update_freq=tb_update_freq,
@@ -110,7 +114,9 @@ class ASRTrainer(BaseTrainer):
             checkpoint_path = "checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
 
         os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
-        checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        # checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        checkpoint_callback = TopKModelCheckpoint(
+            save_top_k=5,
             filepath=checkpoint_path,
             save_weights_only=True,
             save_best_only=True,
@@ -119,17 +125,23 @@ class ASRTrainer(BaseTrainer):
 
         os.makedirs(backup_dir, exist_ok=True)
         backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
-        self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
+
+        lr_logger = LRLogger()
+        self.callbacks = [lr_logger, tb_callback, checkpoint_callback, backup_callback]
 
         for m in metrics:
             self.callbacks.append(ToggleMetrics(m))
 
-        if log_filepath:
+        if log_dir:
+            log_filepath = datetime.now().strftime(
+                os.path.join(log_dir, "log-%Y%m%d-%H%M%S.csv")
+            )
             csv_logger = tf.keras.callbacks.CSVLogger(log_filepath,
                                                       append=log_append)
             self.callbacks.append(csv_logger)
 
         if have_wandb and use_wandb:
+            wandb.tensorboard.patch(root_logdir=tb_log_dir)
             wandb.init(project=wandb_project,
                        config=wandb_config,
                        save_code=True,

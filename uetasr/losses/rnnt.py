@@ -66,10 +66,10 @@ class RnntLoss(tf.keras.losses.Loss):
                                 name=name)
         else:
             return warp_rnnt_loss(
-                acts=logits,
-                labels=labels,
-                label_lengths=label_lengths,
-                input_lengths=logit_lengths,
+                acts=tf.cast(logits, tf.float32),
+                labels=tf.cast(labels, tf.int32),
+                label_lengths=tf.cast(label_lengths, tf.int32),
+                input_lengths=tf.cast(logit_lengths, tf.int32),
                 blank_label=blank,
             )
 
