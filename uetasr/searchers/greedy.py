@@ -172,6 +172,8 @@ class GreedyRNNT(tf.keras.layers.Layer):
                 pred = tf.nn.log_softmax(pred)
                 next_tokens = tf.cast(tf.argmax(pred, axis=-1), dtype=tf.int32)
 
+                scores = tf.reduce_max(pred, axis=-1)
+
                 _equal = tf.equal(next_tokens, self.blank_id)
                 cur_tokens = tf.where(_equal, cur_tokens, next_tokens)
 
@@ -187,7 +189,7 @@ class GreedyRNNT(tf.keras.layers.Layer):
                 if _equal.numpy().all():
                     break
 
-        return self.text_decoder.decode(hyps)
+        return self.text_decoder.decode(hyps), scores
 
     def infer_step(self,
                    encoder_outputs: tf.Tensor,
@@ -239,3 +241,68 @@ class GreedyRNNT(tf.keras.layers.Layer):
         hyps = tf.strings.reduce_join(hyps, axis=-1)
 
         return hyps, cur_tokens, cur_states
+
+
+class GreedyRNNTV2(tf.keras.layers.Layer):
+
+    def __init__(self,
+                 decoder: tf.keras.Model,
+                 jointer: tf.keras.Model,
+                 text_decoder: PreprocessingLayer,
+                 max_symbols_per_step: int = 3,
+                 name: str = 'greedy_rnnt',
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.decoder = decoder
+        self.jointer = jointer
+        self.text_decoder = text_decoder
+        self.blank_id = text_decoder.pad_id
+        self.max_symbols_per_step = max_symbols_per_step
+
+    @tf.function
+    def call(self,
+             encoder_outputs: tf.Tensor,
+             encoder_lengths: tf.Tensor) -> tf.Tensor:
+
+        # batch_size, num_frames = tf.shape(encoder_outputs)[:2]
+        batch_size = tf.shape(encoder_outputs)[0]
+        num_frames = tf.shape(encoder_outputs)[1]
+        cur_tokens = tf.fill([batch_size, 1], self.blank_id)
+        cur_states = self.decoder.make_initial_states(batch_size)
+        cur_states = tf.nest.flatten(cur_states)
+        cur_states = tf.concat(cur_states, axis=1)
+
+        blanks = tf.fill([batch_size, 1], self.blank_id)
+        hyps = tf.zeros((batch_size, 1), dtype=tf.int32)
+
+        for i in range(num_frames):
+            tf.autograph.experimental.set_loop_options(
+                shape_invariants=[(hyps, tf.TensorShape([None, None]))]
+            )
+            end_flag = tf.fill([batch_size, 1], False)
+            enc = tf.expand_dims(encoder_outputs[:, i, :], axis=1)
+            for _ in range(self.max_symbols_per_step):
+                dec, next_states = self.decoder.infer(cur_tokens,
+                                                      training=False,
+                                                      states=cur_states)
+                pred = self.jointer(enc, dec, training=False)
+                pred = tf.squeeze(pred, axis=1)
+                pred = tf.nn.log_softmax(pred)
+                next_tokens = tf.cast(tf.argmax(pred, axis=-1), dtype=tf.int32)
+
+                _equal = tf.equal(next_tokens, self.blank_id)
+                cur_tokens = tf.where(_equal, cur_tokens, next_tokens)
+
+                end_flag = tf.logical_or(end_flag, _equal)
+                lengths_flag = tf.logical_or(
+                    tf.expand_dims(encoder_lengths <= i, axis=1), end_flag)
+
+                hyp = tf.where(lengths_flag, blanks, next_tokens)
+                hyps = tf.concat([hyps, hyp], axis=1)
+
+                cur_states = tf.where(_equal, cur_states, next_states)
+
+                # if _equal.numpy().all():
+                #     break
+        preds = self.text_decoder.decode(hyps)
+        return preds
