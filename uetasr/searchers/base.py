@@ -50,12 +50,15 @@ class BaseSearch(tf.keras.layers.Layer):
             nbest_hyps: N-best decoding results
         """
 
-        nbest_hyps = []
+        nbest_hyps, scores = [], []
         for enc_out, enc_len in zip(encoder_outs, encoder_lengths):
             nbest_hyp = self.search(enc_out, enc_len)
             hyp = self.text_decoder.decode(nbest_hyp.yseq)
+            score = nbest_hyp.score
+            scores.append(score)
             nbest_hyps.append(hyp)
-        return tf.convert_to_tensor(nbest_hyps, dtype=tf.string)
+        return tf.convert_to_tensor(nbest_hyps, dtype=tf.string), \
+            tf.convert_to_tensor(scores, dtype=tf.float32)
 
     def sort_nbest(self, hyps: List[Hypothesis]) -> List[Hypothesis]:
         """Sort hypotheses by score or score given sequence length.

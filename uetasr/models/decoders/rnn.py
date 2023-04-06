@@ -100,7 +100,7 @@ class RNNDecoder(tf.keras.Model):
 
     def make_initial_states(self, batch_size: int) -> tf.Tensor:
         inputs = tf.random.uniform((batch_size, self.hidden_dim))
-        states = [rnn.get_initial_state(inputs) for rnn in self.rnns]
+        states = [rnn[0].get_initial_state(inputs) for rnn in self.rnns]
         states = tf.nest.flatten(states)
         states = tf.concat(states, axis=1)
         return states

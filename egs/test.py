@@ -1,9 +1,17 @@
 import os
 import argparse
+import pyrootutils
 import tensorflow as tf
 from hyperpyyaml import load_hyperpyyaml
+from pathlib import Path
 
 tf.get_logger().setLevel("DEBUG")
+
+pyrootutils.setup_root(
+    Path(__file__).resolve().parents[1],
+    indicator=".project_root",
+    pythonpath=True
+)
 
 
 parser = argparse.ArgumentParser(

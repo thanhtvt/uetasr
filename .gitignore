@@ -147,6 +147,10 @@ dmypy.json
 # Running output
 checkpoints/
 logs/
+results/
+assets/
+variables/
+*.pb
 tb_logs/
 states/
 extras/
@@ -156,3 +160,4 @@ wandb/
 
 # Data files
 labeled_*.tsv
+vlsp2022-unlabeled_*.tsv

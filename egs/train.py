@@ -3,11 +3,12 @@ import os
 import pyrootutils
 import tensorflow as tf
 from hyperpyyaml import load_hyperpyyaml
+from pathlib import Path
 
 tf.get_logger().setLevel("DEBUG")
 
 pyrootutils.setup_root(
-    os.path.dirname(os.path.dirname(__file__)),
+    Path(__file__).resolve().parents[1],
     indicator=".project_root",
     pythonpath=True
 )

@@ -453,6 +453,9 @@ class BeamRNNT(tf.keras.layers.Layer):
         base_index = tf.cast(tf.range(batch_size) * beam_size, dtype=tf.int32)
         best_index = best_index + base_index
         best_hyps = tf.gather(hyps, best_index)
+
+        # Get final score [B]
+        best_scores = tf.reduce_max(scores, axis=-1)
         if self.verbose:
             print('best_hyps')
             print(best_hyps.numpy())
@@ -466,4 +469,4 @@ class BeamRNNT(tf.keras.layers.Layer):
                     [output.decode('utf-8') for output in outputs.numpy()]))
             print('End of batch.')
 
-        return outputs
+        return outputs, best_scores

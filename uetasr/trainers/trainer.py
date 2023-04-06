@@ -3,20 +3,12 @@ import os
 import tqdm
 import tensorflow as tf
 import tensorflow_addons as tfa
-try:
-    import wandb
-    have_wandb = True
-except ImportError:
-    have_wandb = False
 
-from datetime import datetime
 from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 from typing import Union, List
 
 from .base import BaseTrainer
-from .callbacks import LRLogger, TopKModelCheckpoint
 from .optimizers.accumulation import GradientAccumulator
-from .optimizers.lion import Lion
 from ..metrics.toggle import ToggleMetrics
 from ..models.accumulators import GradientAccumulateModel
 from ..utils.common import has_devices
@@ -29,11 +21,8 @@ class ASRTrainer(BaseTrainer):
         model: tf.keras.Model,
         learning_rate: Union[float, LearningRateSchedule],
         beam_decoder: tf.keras.layers.Layer,
-        optim: str = "adam",
-        log_dir: str = '',
+        optimizer: tf.keras.optimizers.Optimizer,
         log_append: bool = False,
-        weight_decay: float = 0.000001,
-        gradient_clipvalue: float = 5.0,
         accum_steps: int = 1,
         losses: List[tf.keras.losses.Loss] = [],
         loss_weights: List[float] = [],
@@ -42,36 +31,11 @@ class ASRTrainer(BaseTrainer):
         jit_compile: bool = False,
         steps_per_execution: int = 1,
         callbacks: List[tf.keras.callbacks.Callback] = [],
-        tb_log_dir: str = "logs",
-        tb_update_freq: str = "epoch",
-        tb_profile_batch: int = 0,
         train_num_samples: int = -1,
         dev_num_samples: int = -1,
         pretrained_model: str = "",
-        checkpoint_path: str = "",
-        ckpt_save_freq: str = "epoch",
-        backup_dir: str = "train_states",
-        use_wandb: bool = False,
-        wandb_project: str = "uetasr",
-        wandb_config: dict = {},
-        wandb_log_dir: str = "wandb",
-        wandb_log_freq: int = 100,
     ):
-        # Init optimizer
-        if optim == "adam":
-            optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                                 clipvalue=gradient_clipvalue)
-        elif optim == "adamw":
-            optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate,
-                                             weight_decay=weight_decay,
-                                             clipvalue=gradient_clipvalue)
-        elif optim == "lion":
-            optimizer = Lion(learning_rate=learning_rate,
-                             weight_decay=weight_decay,
-                             clipvalue=gradient_clipvalue)
-        else:
-            raise NotImplementedError(f"Optimizer {optim} is not implemented.")
-
+        # Apply gradient accumulation
         if accum_steps > 1 and has_devices("GPU") > 1:
             if has_devices("GPU") > 1:
                 optimizer = GradientAccumulator(optimizer, accum_steps)
@@ -104,52 +68,9 @@ class ASRTrainer(BaseTrainer):
 
         # Init callbacks
         self.callbacks = callbacks
-        tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir=tb_log_dir,
-            update_freq=tb_update_freq,
-            profile_batch=tb_profile_batch
-        )
-
-        if not checkpoint_path:
-            checkpoint_path = "checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
-
-        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
-        # checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        checkpoint_callback = TopKModelCheckpoint(
-            save_top_k=5,
-            filepath=checkpoint_path,
-            save_weights_only=True,
-            save_best_only=True,
-            save_freq=ckpt_save_freq
-        )
-
-        os.makedirs(backup_dir, exist_ok=True)
-        backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
-
-        lr_logger = LRLogger()
-        self.callbacks = [lr_logger, tb_callback, checkpoint_callback, backup_callback]
 
         for m in metrics:
             self.callbacks.append(ToggleMetrics(m))
-
-        if log_dir:
-            log_filepath = datetime.now().strftime(
-                os.path.join(log_dir, "log-%Y%m%d-%H%M%S.csv")
-            )
-            csv_logger = tf.keras.callbacks.CSVLogger(log_filepath,
-                                                      append=log_append)
-            self.callbacks.append(csv_logger)
-
-        if have_wandb and use_wandb:
-            wandb.tensorboard.patch(root_logdir=tb_log_dir)
-            wandb.init(project=wandb_project,
-                       config=wandb_config,
-                       save_code=True,
-                       dir=wandb_log_dir,
-                       resume="auto")
-            wandb_logger = wandb.keras.WandbMetricsLogger(
-                log_freq=wandb_log_freq)
-            self.callbacks.append(wandb_logger)
 
     def train(
         self,
@@ -193,7 +114,9 @@ class ASRTrainer(BaseTrainer):
             with open(os.path.join(result_dir, "loss.txt"), "w") as f:
                 f.write(str(results))
 
-        list_audio_paths, list_hyps, list_labels, list_starts, list_ends = [], [], [], [], []
+        list_audio_paths, list_hyps, list_labels = [], [], []
+        list_starts, list_ends = [], []
+        list_scores = []
         for data in tqdm.tqdm(test_loader, desc="Evaluating"):
             if len(data) == 5:
                 audio_paths, (features, features_length,
@@ -225,13 +148,14 @@ class ASRTrainer(BaseTrainer):
                 axis=1
             )
 
-            hyps = self.decoder.infer(encoder_outputs, features_length)
+            hyps, scores = self.decoder.infer(encoder_outputs, features_length)
 
             if isinstance(labels, tuple):
                 labels = labels[0]
             labels = self.text_decoder.decode(labels).numpy()
             labels = [result.decode('utf-8') for result in labels]
             hyps = [result.decode('utf-8') for result in hyps.numpy()]
+            scores = [result for result in scores.numpy()]
             if isinstance(audio_paths, tf.Tensor):
                 audio_paths = [
                     audio_path.decode('utf-8')
@@ -247,6 +171,7 @@ class ASRTrainer(BaseTrainer):
             list_audio_paths.extend(audio_paths)
             list_starts.extend(starts)
             list_ends.extend(ends)
+            list_scores.extend(scores)
             if verbose:
                 for hyp, label in zip(hyps, labels):
                     print('pred :', hyp)
@@ -264,101 +189,101 @@ class ASRTrainer(BaseTrainer):
         log_path = os.path.join(result_dir, test_name + '.tsv')
         with open(log_path, 'w', encoding='utf-8') as fout:
             writer = csv.writer(fout, delimiter='\t')
-            fout.write('PATH\tSTART\tEND\tDECODED\tTRANSCRIPT\n')
+            fout.write('PATH\tSTART\tEND\tDECODED\tSCORE\tTRANSCRIPT\n')
             for audio_path, start, end, hyp, label in zip(
                     list_audio_paths, list_starts, list_ends, list_hyps,
-                    list_labels):
+                    list_scores, list_labels):
                 writer.writerow([audio_path, start, end, hyp, label])
 
     def load_model(self, checkpoint_path: str):
         self.model.load_weights(checkpoint_path).expect_partial()
 
 
-class LMTrainer(BaseTrainer):
+# class LMTrainer(BaseTrainer):
 
-    def __init__(
-        self,
-        model: tf.keras.Model,
-        loss: tf.keras.losses.Loss,
-        learning_rate: Union[float, LearningRateSchedule],
-        optim: str = "adam",
-        weight_decay: float = 0.000001,
-        gradient_clipvalue: float = 5.0,
-        num_epochs: int = 100,
-        jit_compile: bool = False,
-        steps_per_execution: int = 1,
-        train_num_samples: int = -1,
-        dev_num_samples: int = -1,
-        tb_log_dir: str = "logs",
-        tb_update_freq: str = "epoch",
-        tb_profile_batch: int = 0,
-        pretrained_model: str = "",
-        checkpoint_path: str = "",
-        ckpt_save_freq: str = "epoch",
-        backup_dir: str = "train_states",
-    ):
-        # Init optimizer
-        if optim == "adam":
-            optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                                 clipvalue=gradient_clipvalue)
-        elif optim == "adamw":
-            optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate,
-                                             weight_decay=weight_decay,
-                                             clipvalue=gradient_clipvalue)
-        elif optim == "lion":
-            optimizer = Lion(learning_rate=learning_rate,
-                             weight_decay=weight_decay,
-                             clipvalue=gradient_clipvalue)
-        else:
-            raise NotImplementedError(f"Optimizer {optim} is not implemented.")
+#     def __init__(
+#         self,
+#         model: tf.keras.Model,
+#         loss: tf.keras.losses.Loss,
+#         learning_rate: Union[float, LearningRateSchedule],
+#         optim: str = "adam",
+#         weight_decay: float = 0.000001,
+#         gradient_clipvalue: float = 5.0,
+#         num_epochs: int = 100,
+#         jit_compile: bool = False,
+#         steps_per_execution: int = 1,
+#         train_num_samples: int = -1,
+#         dev_num_samples: int = -1,
+#         tb_log_dir: str = "logs",
+#         tb_update_freq: str = "epoch",
+#         tb_profile_batch: int = 0,
+#         pretrained_model: str = "",
+#         checkpoint_path: str = "",
+#         ckpt_save_freq: str = "epoch",
+#         backup_dir: str = "train_states",
+#     ):
+#         # Init optimizer
+#         if optim == "adam":
+#             optimizer = tf.keras.optimizers.Adam(learning_rate,
+#                                                  clipvalue=gradient_clipvalue)
+#         elif optim == "adamw":
+#             optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate,
+#                                              weight_decay=weight_decay,
+#                                              clipvalue=gradient_clipvalue)
+#         elif optim == "lion":
+#             optimizer = Lion(learning_rate=learning_rate,
+#                              weight_decay=weight_decay,
+#                              clipvalue=gradient_clipvalue)
+#         else:
+#             raise NotImplementedError(f"Optimizer {optim} is not implemented.")
 
-        self.optimizer = optimizer
-        self.model = model
+#         self.optimizer = optimizer
+#         self.model = model
 
-        if pretrained_model:
-            self.load_model(pretrained_model)
+#         if pretrained_model:
+#             self.load_model(pretrained_model)
 
-        self.model.compile(optimizer=optimizer,
-                           loss=loss,
-                           steps_per_execution=steps_per_execution,
-                           jit_compile=jit_compile)
+#         self.model.compile(optimizer=optimizer,
+#                            loss=loss,
+#                            steps_per_execution=steps_per_execution,
+#                            jit_compile=jit_compile)
 
-        self.num_epochs = num_epochs
+#         self.num_epochs = num_epochs
 
-        # Init callbacks
-        tb_callback = tf.keras.callbacks.TensorBoard(
-            log_dir=tb_log_dir,
-            update_freq=tb_update_freq,
-            profile_batch=tb_profile_batch
-        )
+#         # Init callbacks
+#         tb_callback = tf.keras.callbacks.TensorBoard(
+#             log_dir=tb_log_dir,
+#             update_freq=tb_update_freq,
+#             profile_batch=tb_profile_batch
+#         )
 
-        if not checkpoint_path:
-            checkpoint_path = "lm/checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
+#         if not checkpoint_path:
+#             checkpoint_path = "lm/checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
 
-        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
-        checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=checkpoint_path,
-            save_weights_only=True,
-            save_best_only=True,
-            save_freq=ckpt_save_freq
-        )
+#         os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+#         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+#             filepath=checkpoint_path,
+#             save_weights_only=True,
+#             save_best_only=True,
+#             save_freq=ckpt_save_freq
+#         )
 
-        os.makedirs(backup_dir, exist_ok=True)
-        backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
-        self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
+#         os.makedirs(backup_dir, exist_ok=True)
+#         backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
+#         self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
 
-    def train(
-        self,
-        train_loader: tf.data.Dataset,
-        dev_loader: tf.data.Dataset = None
-    ):
-        if self.train_num_samples != -1:
-            train_loader = train_loader.repeat().take(self.train_num_samples)
+#     def train(
+#         self,
+#         train_loader: tf.data.Dataset,
+#         dev_loader: tf.data.Dataset = None
+#     ):
+#         if self.train_num_samples != -1:
+#             train_loader = train_loader.repeat().take(self.train_num_samples)
 
-        if self.dev_num_samples != -1 and dev_loader is not None:
-            dev_loader = dev_loader.repeat().take(self.dev_num_samples)
+#         if self.dev_num_samples != -1 and dev_loader is not None:
+#             dev_loader = dev_loader.repeat().take(self.dev_num_samples)
 
-        self.model.fit(train_loader,
-                       epochs=self.num_epochs,
-                       callbacks=self.callbacks,
-                       validation_data=dev_loader)
+#         self.model.fit(train_loader,
+#                        epochs=self.num_epochs,
+#                        callbacks=self.callbacks,
+#                        validation_data=dev_loader)

@@ -19,7 +19,7 @@ class WandbLogger(wandb.keras.WandbMetricsLogger):
                  resume: str = "auto",
                  log_freq: Union[int, str] = "epoch",
                  **kwargs):
-        wandb.tensorboard.patch(root_dir=tb_root_dir)
+        wandb.tensorboard.patch(root_logdir=tb_root_dir)
         wandb.init(project=project_name,
                    config=config,
                    save_code=save_code,
