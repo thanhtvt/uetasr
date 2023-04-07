@@ -113,15 +113,18 @@ dev_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     teacher_forcing: True
     drop_remainder: True
 
+test_name: vlsp2022-unlabeled_ab
+
 test_data: !new:tensorflow.data.experimental.CsvDataset
     filenames:
-        - data/vlsp2022-unlabeled_aa.tsv
+        - !ref data/<test_name>.tsv
     header: True
     field_delim: "\t"
     select_cols: [0, 2]
     record_defaults: [!ref <tf_string>, !ref <tf_string>]
 
 test_loader: !new:uetasr.dataloaders.asr.ASRDataloader
+    name: !ref <test_name>
     data: !ref <test_data>
     text_encoder: !ref <text_encoder>
     audio_encoder: !ref <audio_encoder>

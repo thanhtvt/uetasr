@@ -190,10 +190,10 @@ class ASRTrainer(BaseTrainer):
         with open(log_path, 'w', encoding='utf-8') as fout:
             writer = csv.writer(fout, delimiter='\t')
             fout.write('PATH\tSTART\tEND\tDECODED\tSCORE\tTRANSCRIPT\n')
-            for audio_path, start, end, hyp, label in zip(
+            for audio_path, start, end, hyp, score, label in zip(
                     list_audio_paths, list_starts, list_ends, list_hyps,
                     list_scores, list_labels):
-                writer.writerow([audio_path, start, end, hyp, label])
+                writer.writerow([audio_path, start, end, hyp, score, label])
 
     def load_model(self, checkpoint_path: str):
         self.model.load_weights(checkpoint_path).expect_partial()
