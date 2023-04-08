@@ -1,9 +1,11 @@
-ckpt_path: v2/checkpoints/avg_top4.ckpt
-saved_dir: inference/
+root_dir: ..
+model_version: 3
+ckpt_path: !ref <root_dir>/v2/checkpoints/avg_top4.ckpt
+saved_dir: !ref models/<model_version>/
 
 text_encoder: !new:uetasr.featurizers.text.Subword
-    model_prefix: vocabs/subword_vietnamese_500
-    data_path: data/transcript_train_labeled.txt
+    model_prefix: !ref <root_dir>/vocabs/subword_vietnamese_500
+    data_path: !ref <root_dir>/data/transcript_train_labeled.txt
     character_coverage: 1.0
     model_type: bpe # word bpe unigram char
     num_threads: 16

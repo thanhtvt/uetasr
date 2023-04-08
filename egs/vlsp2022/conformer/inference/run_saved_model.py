@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+np.random.seed(1337)
 import os
 import tensorflow as tf
 import tensorflow_io as tfio
@@ -24,11 +25,11 @@ def read_audio(filepath):
 
 
 def run_saved_model(saved_model: str, audio_path: str):
-    module = tf.saved_model.load(export_dir=saved_model)
     signal = read_audio(audio_path)
+    module = tf.saved_model.load(export_dir=saved_model)
     time1 = perf_counter()
-    outputs = module(signal)
-    outputs = tf.squeeze(outputs).numpy().decode("utf-8")
+    outputs = module.pred(signal)
+    outputs = outputs.numpy().decode("utf-8")
     time2 = perf_counter()
     print(f"Time: {time2 - time1}")
     return outputs
@@ -45,7 +46,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-    np.random.seed(0)
 
     pred = run_saved_model(args.saved_model, args.audio_path)
     print(pred)
