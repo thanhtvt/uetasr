@@ -22,13 +22,12 @@ _Suggestions are always welcome!_
 - [ ] Integrate language model (e.g., KenLM, RNN, Transformer) for inference.
 - [x] Option to enable XLA compilation.
 - [ ] Add metrics (WER/CER) computation during validation.
-- [ ] Add mixed-precision training.
+- [x] Add mixed-precision training.
 - [ ] Add TFRecord support for faster data loading.
-- [ ] Add TFLite conversion.
-- [ ] Support multi-batch inference for transducer models.
-- [ ] Better configuration management (follow [Hydra](https://github.com/facebookresearch/hydra)).
+- [x] Add TFLite/SavedModel conversion.
+- [x] Support multi-batch inference for transducer models.
+- [x] Better configuration management.
 - [ ] Add demo on [HuggingFace spaces](https://huggingface.co/spaces).
-- [ ] Support Conformer-1 model ([reference](https://www.assemblyai.com/blog/conformer-1/)).
 
 ## Key features
 
