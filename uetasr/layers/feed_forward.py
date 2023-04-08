@@ -23,12 +23,12 @@ class PositionwiseFeedForward(Layer):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / input_dim),
             maxval=math.sqrt(1.0 / input_dim),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / hidden_units),
             maxval=math.sqrt(1.0 / hidden_units),
-            seed=None
+            seed=0
         )
         self.w_1 = tf.keras.layers.Dense(hidden_units,
                                          kernel_initializer=initializer1,

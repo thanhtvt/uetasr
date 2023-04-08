@@ -23,22 +23,22 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
         initializer3 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
         initializer4 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
 
         self.linear_q = tf.keras.layers.Dense(n_feat,
@@ -151,12 +151,12 @@ class RelPositionMultiHeadAttention(MultiHeadAttention):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / n_feat),
             maxval=math.sqrt(1.0 / n_feat),
-            seed=None
+            seed=0
         )
         self.linear_out = tf.keras.layers.Dense(
             n_feat,
@@ -175,7 +175,7 @@ class RelPositionMultiHeadAttention(MultiHeadAttention):
         initializer = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / self.h),
             maxval=math.sqrt(1.0 / self.h),
-            seed=None
+            seed=0
         )
         self.pos_bias_u = tf.Variable(
             initial_value=initializer([self.h, self.d_k], dtype=tf.float32),
@@ -251,11 +251,7 @@ class RelPositionMultiHeadAttention(MultiHeadAttention):
         # compute matrix b and matrix d
         # (batch, head, time1, 2*time1-1)
         matrix_bd = tf.matmul(q_with_bias_v, tf.transpose(p, perm=[0, 1, 3, 2]))
-        # print(matrix_bd.shape)
         matrix_bd = self.rel_shift(matrix_bd, left_context=left_context)
-        # print(matrix_ac.shape)
-        # print(matrix_bd.shape)
-        # print('-' * 10)
         scores = (matrix_ac + matrix_bd) / tf.math.sqrt(
             self.d_k * 1.0)  # (batch, head, time1, time2)
 

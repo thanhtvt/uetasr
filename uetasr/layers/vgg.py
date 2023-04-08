@@ -19,21 +19,21 @@ class VGG2L(tf.keras.layers.Layer):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0),
             maxval=math.sqrt(1.0),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / 64),
             maxval=math.sqrt(1.0 / 64),
-            seed=None
+            seed=0
         )
         initializer3 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / 128),
             maxval=math.sqrt(1.0 / 128),
-            seed=None)
+            seed=0)
         initializer4 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / 128),
             maxval=math.sqrt(1.0 / 128),
-            seed=None
+            seed=0
         )
         self.vgg2l = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64,
@@ -137,17 +137,17 @@ class VGG2LV2(tf.keras.layers.Layer):
         super(VGG2LV2, self).__init__(name=name, **kwargs)
 
         initializer1 = tf.keras.initializers.RandomUniform(
-            minval=-math.sqrt(1.0), maxval=math.sqrt(1.0), seed=None)
+            minval=-math.sqrt(1.0), maxval=math.sqrt(1.0), seed=0)
         initializer2 = tf.keras.initializers.RandomUniform(
-            minval=-math.sqrt(1.0 / 64), maxval=math.sqrt(1.0 / 64), seed=None)
+            minval=-math.sqrt(1.0 / 64), maxval=math.sqrt(1.0 / 64), seed=0)
         initializer3 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / 128),
             maxval=math.sqrt(1.0 / 128),
-            seed=None)
+            seed=0)
         initializer4 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / 128),
             maxval=math.sqrt(1.0 / 128),
-            seed=None)
+            seed=0)
         self.vgg2l = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64,
                                    3,

@@ -18,6 +18,7 @@ if __name__ == "__main__":
     output_dir = sys.argv[2]
     num_workers = int(sys.argv[3])  # specify the number of worker processes
     # glob data_dir to find *.mp3 files
+    os.makedirs(output_dir, exist_ok=True)
     files = glob(os.path.join(data_dir, "**/*.mp3"), recursive=True)
     # apply multiprocessing to convert mp3 to wav
     with multiprocessing.Pool(num_workers) as pool:

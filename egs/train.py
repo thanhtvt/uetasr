@@ -23,18 +23,11 @@ parser.add_argument(
     help="A yaml-formatted file using the extended YAML syntax.",
 )
 parser.add_argument(
-    "--dataset",
-    default="vlsp2022",
-    type=str,
-    help="Dataset name."
-)
-parser.add_argument(
     "--devices",
     default="-1",
     type=str,
     help="Devices for training, separate by comma.",
 )
-
 parser.add_argument(
     "--mxp",
     action="store_true",

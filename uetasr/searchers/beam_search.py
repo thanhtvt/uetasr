@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import \
@@ -160,7 +161,6 @@ class BeamRNNT(tf.keras.layers.Layer):
                  lmwt: float = 0.3,
                  lm_path: str = '',
                  lm: tf.keras.Model = None,
-                 verbose: bool = False,
                  name: str = 'beam_rnnt',
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -176,7 +176,6 @@ class BeamRNNT(tf.keras.layers.Layer):
         self.lm = lm
         self.blank_id = text_decoder.pad_id
         self.max_symbols_per_step = max_symbols_per_step
-        self.verbose = verbose
 
     def infer(self, encoder_outputs: Union[tf.Tensor, np.ndarray],
               encoder_lengths: Union[tf.Tensor, np.ndarray]) -> tf.Tensor:
@@ -252,20 +251,6 @@ class BeamRNNT(tf.keras.layers.Layer):
                     topk_logp_lm = tf.where(topk_logp_index == self.blank_id,
                                             0.0, topk_logp_lm)
 
-                if self.verbose:
-                    print(f'Debug step {i.numpy()} substep {j.numpy()}')
-                    print('topk_logp_value')
-                    print(topk_logp_value.numpy())
-                    print('topk_logp_index')
-                    debug_topk_logp_index = [[
-                        x.decode('utf-8') for x in y
-                    ] for y in self.text_decoder.decode(
-                        tf.expand_dims(topk_logp_index, axis=-1)).numpy()]
-                    print(np.array(debug_topk_logp_index))
-                    if self.lm:
-                        print('topk_logp_lm')
-                        print(topk_logp_lm.numpy())
-
                 flag = tf.math.logical_or(end_flag, encoder_lengths <= i)
                 if beam_size > 1:
                     unfinished = tf.concat(
@@ -279,9 +264,6 @@ class BeamRNNT(tf.keras.layers.Layer):
                     unfinished = zeros_mask
                     finished = flag
 
-                if self.verbose:
-                    print('topk_logp_index reshape')
-                    print(topk_logp_index.numpy())
                 # [B x b x b]
                 topk_logp_index = tf.reshape(topk_logp_index, [-1])
                 topk_logp_value = tf.where(unfinished, inf, topk_logp_value)
@@ -291,18 +273,11 @@ class BeamRNNT(tf.keras.layers.Layer):
                     topk_logp_lm = tf.where(unfinished, inf, topk_logp_lm)
                     topk_logp_lm = tf.where(finished, zeros, topk_logp_lm)
 
-                if self.verbose:
-                    print('topk_logp_value after filter')
-                    print(topk_logp_value.numpy())
-
                 topk_logp_index = tf.where(
                     tf.repeat(tf.squeeze(flag, axis=1), beam_size),
                     tf.fill([batch_size * beam_size * beam_size],
                             self.blank_id), topk_logp_index)
 
-                if self.verbose:
-                    print('scores before add logp')
-                    print(scores.numpy())
                 # [B x b, b]
                 scores = scores + topk_logp_value
                 if self.lm:
@@ -327,18 +302,11 @@ class BeamRNNT(tf.keras.layers.Layer):
                 # norm_scores = tf.cast(scores / lengths, dtype=tf.float32)
                 norm_scores = scores
 
-                if self.verbose:
-                    print('norm_scores')
-                    print(norm_scores.numpy())
-
                 # [B, b x b]
                 scores = tf.reshape(scores,
                                     [batch_size, beam_size * beam_size])
                 norm_scores = tf.reshape(norm_scores,
                                          [batch_size, beam_size * beam_size])
-                if self.verbose:
-                    print('scores after add logp')
-                    print(scores.numpy())
                 # [B, b]
                 topk_scores = tf.math.top_k(norm_scores,
                                             k=beam_size,
@@ -389,33 +357,6 @@ class BeamRNNT(tf.keras.layers.Layer):
                     tf.math.logical_or(end_flag, encoder_lengths <= i), blanks,
                     next_tokens)
 
-                if self.verbose:
-                    print('hyp')
-                    debug_hyp = [
-                        x.decode('utf-8')
-                        for x in self.text_decoder.decode(hyp).numpy()
-                    ]
-                    debug_score = tf.reshape(topk_scores.values,
-                                             [-1]).numpy().tolist()
-                    print(np.array([x for x in zip(debug_hyp, debug_score)]))
-
-                    print('hyps before')
-                    debug_hyps = [
-                        x.decode('utf-8')
-                        for x in self.text_decoder.decode(hyps).numpy()
-                    ]
-                    print(np.array(debug_hyps))
-
-                hyps = tf.concat([best_hyps, hyp], axis=1)
-
-                if self.verbose:
-                    print('hyps after')
-                    debug_hyps = [
-                        x.decode('utf-8')
-                        for x in self.text_decoder.decode(hyps).numpy()
-                    ]
-                    print(np.array(debug_hyps))
-
                 # cur_states is not true with new cur_tokens
                 # regather them from cur_states by best_hyp_index
                 # choose cur_states by new best_hyp_index
@@ -445,9 +386,6 @@ class BeamRNNT(tf.keras.layers.Layer):
 
         # [B, b]
         scores = tf.reshape(scores, [batch_size, beam_size])
-        if self.verbose:
-            print('scores final')
-            print(scores.numpy())
         # [B]
         best_index = tf.cast(tf.argmax(scores, axis=-1), dtype=tf.int32)
         base_index = tf.cast(tf.range(batch_size) * beam_size, dtype=tf.int32)
@@ -456,17 +394,6 @@ class BeamRNNT(tf.keras.layers.Layer):
 
         # Get final score [B]
         best_scores = tf.reduce_max(scores, axis=-1)
-        if self.verbose:
-            print('best_hyps')
-            print(best_hyps.numpy())
-
-            print('hyps text')
         outputs = self.text_decoder.decode(best_hyps)
-
-        if self.verbose:
-            print(
-                np.array(
-                    [output.decode('utf-8') for output in outputs.numpy()]))
-            print('End of batch.')
 
         return outputs, best_scores

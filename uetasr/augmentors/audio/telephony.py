@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import \
@@ -6,8 +7,8 @@ from typing import Union, List
 try:
     from telecodecs.g711.g711 import G711
 except ImportError:
-    print("You must install `telecodecs` package to use this augmentor.")
-    print("Run script ./tools/install_g711_augment.sh to install it.")
+    logging.info("You must install `telecodecs` package to use this augmentor.")
+    logging.info("Run script ./tools/install_g711_augment.sh to install it.")
     raise ImportError
 
 

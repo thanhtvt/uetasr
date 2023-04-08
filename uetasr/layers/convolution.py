@@ -35,17 +35,17 @@ class ConvolutionModule(tf.keras.layers.Layer):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / channels),
             maxval=math.sqrt(1.0 / channels),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(channels / channels / 2),
             maxval=math.sqrt(channels / channels / 2),
-            seed=None
+            seed=0
         )
         initializer3 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / channels),
             maxval=math.sqrt(1.0 / channels),
-            seed=None
+            seed=0
         )
 
         self.pointwise_conv1 = tf.keras.layers.Conv1D(

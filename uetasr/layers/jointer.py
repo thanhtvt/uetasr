@@ -20,17 +20,17 @@ class RNNTJointer(tf.keras.Model):
         initializer1 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / hidden_dim),
             maxval=math.sqrt(1.0 / hidden_dim),
-            seed=None
+            seed=0
         )
         initializer2 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / hidden_dim),
             maxval=math.sqrt(1.0 / hidden_dim),
-            seed=None
+            seed=0
         )
         initializer3 = tf.keras.initializers.RandomUniform(
             minval=-math.sqrt(1.0 / hidden_dim),
             maxval=math.sqrt(1.0 / hidden_dim),
-            seed=None
+            seed=0
         )
 
         self.enc_fc = tf.keras.layers.Dense(hidden_dim,

@@ -305,4 +305,5 @@ class GreedyRNNTV2(tf.keras.layers.Layer):
                 # if _equal.numpy().all():
                 #     break
         preds = self.text_decoder.decode(hyps)
+        preds = tf.squeeze(preds)
         return preds

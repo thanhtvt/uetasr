@@ -1,6 +1,7 @@
 import csv
 import os
 import tqdm
+import logging
 import tensorflow as tf
 import tensorflow_addons as tfa
 
@@ -79,9 +80,9 @@ class ASRTrainer(BaseTrainer):
         cmvn_loader: tf.data.Dataset = None,
     ):
         if cmvn_loader and self.model.cmvn:
-            print("Start compute cmvn...")
+            logging.info("Start compute cmvn...")
             self.model.adapt(cmvn_loader, batch_size=1)
-            print("Finish compute cmvn.")
+            logging.info("Finish compute cmvn.")
 
         if self.train_num_samples != -1:
             train_loader = train_loader.repeat().take(self.train_num_samples)
@@ -174,9 +175,9 @@ class ASRTrainer(BaseTrainer):
             list_scores.extend(scores)
             if verbose:
                 for hyp, label in zip(hyps, labels):
-                    print('pred :', hyp)
-                    print('label:', label)
-                    print('+' * 5)
+                    logging.debug('pred :', hyp)
+                    logging.debug('label:', label)
+                    logging.debug('+' * 5)
 
         ref_path = os.path.join(result_dir, 'ref.txt')
         hyp_path = os.path.join(result_dir, 'hyp.txt')
