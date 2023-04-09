@@ -8,14 +8,13 @@ keras==2.10
 
 # ---------- audio ---------- #
 sentencepiece
-pyroomacoustics
-audiomentations
 kenlm
 
 # ---------- logger ---------- #
 wandb
 
 # ---------- others ---------- #
+pyrootutils
 hyperpyyaml
 numpy
 setuptools
