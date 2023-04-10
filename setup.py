@@ -24,7 +24,7 @@ setup(
     long_description_content_type="text/markdown",
     author="thanhtvt & others",
     author_email="trantrongthanhhp@gmail.com",
-    packages=find_packages(exclude=["egs*", "tools*"]),
+    packages=find_packages(exclude=["egs*", "tools*", "tests*"]),
     license="MIT",
     keywords=["speech recognition", "tensorflow"],
     install_requires=install_requires,
