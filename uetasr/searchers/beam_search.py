@@ -357,6 +357,8 @@ class BeamRNNT(tf.keras.layers.Layer):
                     tf.math.logical_or(end_flag, encoder_lengths <= i), blanks,
                     next_tokens)
 
+                hyps = tf.concat([best_hyps, hyp], axis=1)
+
                 # cur_states is not true with new cur_tokens
                 # regather them from cur_states by best_hyp_index
                 # choose cur_states by new best_hyp_index
