@@ -113,7 +113,7 @@ dev_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     teacher_forcing: True
     drop_remainder: True
 
-test_name: vlsp2022-unlabeled_ab
+test_name: vlsp2022-unlabeled_aa
 
 test_data: !new:tensorflow.data.experimental.CsvDataset
     filenames:
@@ -132,6 +132,7 @@ test_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     num_parallel_calls: -1
     use_ctc_target: True
     shuffle: False
+    use_audio_path: True
     audio_max_length: 35
     audio_min_length: 1
     text_max_length: 500
@@ -139,7 +140,7 @@ test_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     use_bucket: False
     bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
     bucket_batch_sizes: [16, 8, 8, 4, 4, 2, 2, 2]
-    batch_size: 64
+    batch_size: 96
     teacher_forcing: True
     drop_remainder: True
 
@@ -245,7 +246,6 @@ decoder: !new:uetasr.searchers.BeamRNNT
   beam: 10
   lm: !ref <lm>
   lmwt: 0.3
-  verbose: False
 
 wer_metrics: !new:uetasr.metrics.WordErrorRate
     accumulate: True
@@ -258,26 +258,26 @@ tb_callbacks: !new:tensorflow.keras.callbacks.TensorBoard
     update_freq: 1000
     profile_batch: 0
 
-wandb_config:
-    vocab_size: !ref <text_encoder.vocab_size>
-    audio_augment: [gain]
-    feat_augment: [time_mask, feat_mask]
-    batch_size: !ref <train_loader[bucket_batch_sizes]>
-    model: conformer-small
-    params: 30.5M
-    loss: [rnnt]
-    warmup_steps: !ref <warmup_steps>
-    accum_steps: !ref <accum_steps>
-    lm: !ref <lm>
+# wandb_config:
+#     vocab_size: !ref <text_encoder.vocab_size>
+#     audio_augment: [gain]
+#     feat_augment: [time_mask, feat_mask]
+#     batch_size: !ref <train_loader[bucket_batch_sizes]>
+#     model: conformer-small
+#     params: 30.5M
+#     loss: [rnnt]
+#     warmup_steps: !ref <warmup_steps>
+#     accum_steps: !ref <accum_steps>
+#     lm: !ref <lm>
 
-wandb_callbacks: !new:uetasr.trainers.callbacks.WandbLogger
-    tb_root_dir: !ref <tb_callbacks[log_dir]>
-    dir: !ref <egs_name>
-    project_name: uetasr
-    config: !ref <wandb_config>
-    save_code: False
-    resume: auto
-    log_freq: 1000
+# wandb_callbacks: !new:uetasr.trainers.callbacks.WandbLogger
+#     tb_root_dir: !ref <tb_callbacks[log_dir]>
+#     dir: !ref <egs_name>
+#     project_name: uetasr
+#     config: !ref <wandb_config>
+#     save_code: False
+#     resume: auto
+#     log_freq: 1000
 
 ckpt_callbacks: !new:uetasr.trainers.callbacks.TopKModelCheckpoint
     save_top_k: 5
