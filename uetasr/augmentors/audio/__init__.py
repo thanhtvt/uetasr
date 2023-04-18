@@ -1,5 +1,5 @@
 from .gain import Gain
-from .noise import GaussianNoise
+from .noise import GaussianNoise, Reverber
 from .speed import TimeStretch
 from .pitch import PitchShift
 try:
@@ -13,5 +13,6 @@ __all__ = [
     "GaussianNoise",
     "TimeStretch",
     "PitchShift",
+    "Reverber",
     "Telephony"
 ]

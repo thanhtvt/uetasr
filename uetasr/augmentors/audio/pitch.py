@@ -2,14 +2,53 @@ import math
 import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
+from librosa.effects import pitch_shift
 from tensorflow.keras.layers.experimental.preprocessing import \
     PreprocessingLayer
 from typing import Union, List
 
 from ...utils.common import get_shape
+from ...utils.audio import fix_length
 
 
 class PitchShift(PreprocessingLayer):
+
+    def __init__(
+        self,
+        prob: float = 0.5,
+        min_semitones: int = -4,
+        max_semitones: int = 4,
+        sample_rate: int = 16000,
+        name='pitch_shift',
+    ):
+        super().__init__(trainable=False, name=name)
+        self.prob = prob
+        self.min_semitones = min_semitones
+        self.max_semitones = max_semitones
+        self.sr = sample_rate
+
+    def call(self, audio: tf.Tensor) -> tf.Tensor:
+        num_semitones = tf.random.uniform(shape=(),
+                                          minval=self.min_semitones,
+                                          maxval=self.max_semitones,
+                                          dtype=tf.int32)
+        augmented_audio = tf.numpy_function(pitch_shift_librosa,
+                                            [audio, self.sr, num_semitones],
+                                            tf.float32)
+        prob = tf.random.uniform(shape=(),
+                                 minval=0,
+                                 maxval=1,
+                                 dtype=tf.float32)
+        return tf.cond(prob <= self.prob,
+                       lambda: augmented_audio,
+                       lambda: audio)
+
+
+def pitch_shift_librosa(audio, sr, n_steps):
+    return pitch_shift(audio, sr=sr, n_steps=n_steps)
+
+
+class PitchShift2(PreprocessingLayer):
 
     def __init__(self,
                  prob: float = 0.5,
@@ -52,6 +91,8 @@ class PitchShift(PreprocessingLayer):
         augmented_audio = tfio.audio.resample(audio_stretch,
                                               target_sample_rate,
                                               self.sample_rate)
+        augmented_audio = fix_length(augmented_audio,
+                                     target_size=get_shape(audio)[-1])
 
         prob = tf.random.uniform(shape=(),
                                  minval=0,
