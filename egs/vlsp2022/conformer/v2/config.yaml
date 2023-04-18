@@ -140,9 +140,9 @@ test_loader: !new:uetasr.dataloaders.asr.ASRDataloader
     use_bucket: False
     bucket_boundaries: [5, 10, 15, 20, 25, 30, 35]
     bucket_batch_sizes: [16, 8, 8, 4, 4, 2, 2, 2]
-    batch_size: 96
+    batch_size: 64
     teacher_forcing: True
-    drop_remainder: True
+    drop_remainder: False
 
 cmvn_loader: !new:uetasr.dataloaders.audio.AudioDataloader
     data_path: data/cmvn.tsv
