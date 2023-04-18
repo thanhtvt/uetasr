@@ -19,11 +19,9 @@ _Suggestions are always welcome!_
 ## TODO List
 - [x] Add more augmentation methods (e.g., Telephony, etc.).
 - [x] Support [WanDB](https://wandb.ai) for logging.
-- [ ] Integrate language model (e.g., KenLM, RNN, Transformer) for inference.
 - [x] Option to enable XLA compilation.
-- [ ] Add metrics (WER/CER) computation during validation.
+- [x] Add metrics (WER/CER) computation.
 - [x] Add mixed-precision training.
-- [ ] Add TFRecord support for faster data loading.
 - [x] Add TFLite/SavedModel conversion.
 - [x] Support multi-batch inference for transducer models.
 - [x] Better configuration management.
@@ -121,6 +119,7 @@ docker run -it --name uetasr --gpus all -v <workspace_dir>:/workspace uetasr:v1.
 2. *Complete later...*
 
 ## References & Credits
-1. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
-2. [TensorFlowASR: Almost State-of-the-art Automatic Speech Recognition in Tensorflow 2](https://github.com/TensorSpeech/TensorFlowASR)
-3. [namnv1906](https://github.com/namnv1906/) (for the guidance & initial version of this toolkit)
+1. [namnv1906](https://github.com/namnv1906/) (for the guidance & initial version of this toolkit)
+2. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
+3. [TensorFlowASR: Almost State-of-the-art Automatic Speech Recognition in Tensorflow 2](https://github.com/TensorSpeech/TensorFlowASR)
+4. [Python module for evaluting ASR hypotheses](https://github.com/belambert/asr-evaluation)

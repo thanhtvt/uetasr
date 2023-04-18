@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from .common import get_shape
+
 
 def load_audio(audio_path: str):
     audio = tf.io.read_file(audio_path)
@@ -14,3 +16,17 @@ def save_audio(audio: tf.Tensor, sample_rate: int, audio_path: str):
         audio = tf.expand_dims(audio, axis=1)
     encoded = tf.audio.encode_wav(audio, sample_rate)
     tf.io.write_file(audio_path, encoded)
+
+
+def fix_length(audio: tf.Tensor, target_size: int, axis: int = -1):
+    n = audio.shape[axis]
+    if n > target_size:
+        slices = [slice(None)] * audio.ndim
+        slices[axis] = slice(0, target_size)
+        return audio[tuple(slices)]
+    elif n < size:
+        lengths = [(0, 0)] * audio.ndim
+        lengths[axis] = (0, target_size - n)
+        return tf.pad(audio, lengths)
+
+    return audio

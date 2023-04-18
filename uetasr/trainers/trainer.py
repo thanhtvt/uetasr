@@ -12,7 +12,7 @@ from .base import BaseTrainer
 from .optimizers.accumulation import GradientAccumulator
 from ..metrics.toggle import ToggleMetrics
 from ..models.accumulators import GradientAccumulateModel
-from ..utils.common import has_devices
+from ..utils.common import has_devices, get_num_devices
 
 
 class ASRTrainer(BaseTrainer):
@@ -37,15 +37,15 @@ class ASRTrainer(BaseTrainer):
         pretrained_model: str = "",
     ):
         # Apply gradient accumulation
-        if accum_steps > 1 and has_devices("GPU") > 1:
-            if has_devices("GPU") > 1:
+        if accum_steps > 1 and has_devices("GPU"):
+            if get_num_devices("GPU") > 1:
                 optimizer = GradientAccumulator(optimizer, accum_steps)
-            elif has_devices("GPU") == 1:  # GA model is not stable multi-gpus
-                model = GradientAccumulateModel(accum_steps=accum_steps,
-                                                mixed_precision=False,
-                                                use_agc=True,
-                                                inputs=model.input,
-                                                outputs=model.output)
+            # elif get_num_devices("GPU") == 1:  # GA model is not stable multi-gpus
+            #     model = GradientAccumulateModel(accum_steps=accum_steps,
+            #                                     mixed_precision=False,
+            #                                     use_agc=True,
+            #                                     inputs=model.input,
+            #                                     outputs=model.output)
 
         self.optimizer = optimizer
         self.model = model
@@ -80,9 +80,9 @@ class ASRTrainer(BaseTrainer):
         cmvn_loader: tf.data.Dataset = None,
     ):
         if cmvn_loader and self.model.cmvn:
-            logging.info("Start compute cmvn...")
+            print("Start compute cmvn...")
             self.model.adapt(cmvn_loader, batch_size=1)
-            logging.info("Finish compute cmvn.")
+            print("Finish compute cmvn.")
 
         if self.train_num_samples != -1:
             train_loader = train_loader.repeat().take(self.train_num_samples)
@@ -175,116 +175,43 @@ class ASRTrainer(BaseTrainer):
             list_scores.extend(scores)
             if verbose:
                 for hyp, label in zip(hyps, labels):
-                    logging.debug('pred :', hyp)
-                    logging.debug('label:', label)
-                    logging.debug('+' * 5)
+                    print('pred :', hyp)
+                    print('label:', label)
+                    print('+' * 5)
 
-        ref_path = os.path.join(result_dir, 'ref.txt')
-        hyp_path = os.path.join(result_dir, 'hyp.txt')
-        with open(ref_path, 'w', encoding='utf-8') as fref:
-            with open(hyp_path, 'w', encoding='utf-8') as fhyp:
-                for hyp, label in zip(list_hyps, list_labels):
-                    fref.write(label + '\n')
-                    fhyp.write(hyp + '\n')
-
-        log_path = os.path.join(result_dir, test_name + '.tsv')
-        with open(log_path, 'w', encoding='utf-8') as fout:
-            writer = csv.writer(fout, delimiter='\t')
-            fout.write('PATH\tSTART\tEND\tDECODED\tSCORE\tTRANSCRIPT\n')
-            for audio_path, start, end, hyp, score, label in zip(
-                    list_audio_paths, list_starts, list_ends, list_hyps,
-                    list_scores, list_labels):
-                writer.writerow([audio_path, start, end, hyp, score, label])
+        self.write_prediction_to_file(result_dir, test_name,
+                                      list_audio_paths, list_starts,
+                                      list_ends, list_hyps, list_scores,
+                                      list_labels)
 
     def load_model(self, checkpoint_path: str):
         self.model.load_weights(checkpoint_path).expect_partial()
 
+    def write_prediction_to_file(
+        self,
+        save_dir: str,
+        filename: str,
+        audio_paths: List[str] = None,
+        starts: List[float] = None,
+        ends: List[float] = None,
+        predictions: List[str] = None,
+        scores: List[float] = None,
+        labels: List[str] = None,
+    ):
 
-# class LMTrainer(BaseTrainer):
+        ref_path = os.path.join(save_dir, 'ref.txt')
+        hyp_path = os.path.join(save_dir, 'hyp.txt')
+        with open(ref_path, 'w', encoding='utf-8') as fref:
+            with open(hyp_path, 'w', encoding='utf-8') as fhyp:
+                for hyp, label in zip(predictions, labels):
+                    fref.write(label + '\n')
+                    fhyp.write(hyp + '\n')
 
-#     def __init__(
-#         self,
-#         model: tf.keras.Model,
-#         loss: tf.keras.losses.Loss,
-#         learning_rate: Union[float, LearningRateSchedule],
-#         optim: str = "adam",
-#         weight_decay: float = 0.000001,
-#         gradient_clipvalue: float = 5.0,
-#         num_epochs: int = 100,
-#         jit_compile: bool = False,
-#         steps_per_execution: int = 1,
-#         train_num_samples: int = -1,
-#         dev_num_samples: int = -1,
-#         tb_log_dir: str = "logs",
-#         tb_update_freq: str = "epoch",
-#         tb_profile_batch: int = 0,
-#         pretrained_model: str = "",
-#         checkpoint_path: str = "",
-#         ckpt_save_freq: str = "epoch",
-#         backup_dir: str = "train_states",
-#     ):
-#         # Init optimizer
-#         if optim == "adam":
-#             optimizer = tf.keras.optimizers.Adam(learning_rate,
-#                                                  clipvalue=gradient_clipvalue)
-#         elif optim == "adamw":
-#             optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate,
-#                                              weight_decay=weight_decay,
-#                                              clipvalue=gradient_clipvalue)
-#         elif optim == "lion":
-#             optimizer = Lion(learning_rate=learning_rate,
-#                              weight_decay=weight_decay,
-#                              clipvalue=gradient_clipvalue)
-#         else:
-#             raise NotImplementedError(f"Optimizer {optim} is not implemented.")
-
-#         self.optimizer = optimizer
-#         self.model = model
-
-#         if pretrained_model:
-#             self.load_model(pretrained_model)
-
-#         self.model.compile(optimizer=optimizer,
-#                            loss=loss,
-#                            steps_per_execution=steps_per_execution,
-#                            jit_compile=jit_compile)
-
-#         self.num_epochs = num_epochs
-
-#         # Init callbacks
-#         tb_callback = tf.keras.callbacks.TensorBoard(
-#             log_dir=tb_log_dir,
-#             update_freq=tb_update_freq,
-#             profile_batch=tb_profile_batch
-#         )
-
-#         if not checkpoint_path:
-#             checkpoint_path = "lm/checkpoints/ckpt-epoch-{epoch:02d}.ckpt"
-
-#         os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
-#         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-#             filepath=checkpoint_path,
-#             save_weights_only=True,
-#             save_best_only=True,
-#             save_freq=ckpt_save_freq
-#         )
-
-#         os.makedirs(backup_dir, exist_ok=True)
-#         backup_callback = tf.keras.callbacks.BackupAndRestore(backup_dir)
-#         self.callbacks = [tb_callback, checkpoint_callback, backup_callback]
-
-#     def train(
-#         self,
-#         train_loader: tf.data.Dataset,
-#         dev_loader: tf.data.Dataset = None
-#     ):
-#         if self.train_num_samples != -1:
-#             train_loader = train_loader.repeat().take(self.train_num_samples)
-
-#         if self.dev_num_samples != -1 and dev_loader is not None:
-#             dev_loader = dev_loader.repeat().take(self.dev_num_samples)
-
-#         self.model.fit(train_loader,
-#                        epochs=self.num_epochs,
-#                        callbacks=self.callbacks,
-#                        validation_data=dev_loader)
+        log_path = os.path.join(save_dir, filename + '.tsv')
+        with open(log_path, 'w', encoding='utf-8') as fout:
+            writer = csv.writer(fout, delimiter='\t')
+            fout.write('PATH\tSTART\tEND\tDECODED\tSCORE\tTRANSCRIPT\n')
+            for audio_path, start, end, hyp, score, label in zip(
+                    audio_paths, starts, ends, predictions,
+                    scores, labels):
+                writer.writerow([audio_path, start, end, hyp, score, label])

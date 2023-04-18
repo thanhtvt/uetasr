@@ -13,6 +13,9 @@ kenlm
 # ---------- logger ---------- #
 wandb
 
+# ---------- error analysis ---------- #
+edit_distance
+
 # ---------- others ---------- #
 pyrootutils
 hyperpyyaml

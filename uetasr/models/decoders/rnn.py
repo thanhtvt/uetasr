@@ -104,3 +104,16 @@ class RNNDecoder(tf.keras.Model):
         states = tf.nest.flatten(states)
         states = tf.concat(states, axis=1)
         return states
+
+    def select_state(self, states: tf.Tensor, index: int):
+        states = tf.split(states, num_or_size_splits=len(self.rnns), axis=1)
+        states = [
+            tf.split(state, num_or_size_splits=2, axis=1) for state in states
+        ]
+        fin_states = []
+        for i in range(len(self.rnns)):
+            fin_states.append([states[i][0][index][tf.newaxis],
+                               states[i][1][index][tf.newaxis]])
+        fin_states = tf.nest.flatten(fin_states)
+        fin_states = tf.concat(fin_states, axis=1)
+        return fin_states

@@ -14,6 +14,10 @@ def has_devices(devices: Union[List[str], str]):
     return len(tf.config.list_logical_devices(devices)) != 0
 
 
+def get_num_devices(devices: str):
+    return len(tf.config.list_logical_devices(devices))
+
+
 def get_rnn(rnn_type):
     if rnn_type.lower() == 'lstm':
         return tf.keras.layers.LSTM
