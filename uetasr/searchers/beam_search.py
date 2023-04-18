@@ -22,6 +22,7 @@ class BeamSearch(BaseSearch):
         lm_weight: float = 0.0,
         score_norm: bool = False,
         nbest: int = 1,
+        softmax_temperature: float = 1.0,
         name: str = "beam_search",
         **kwargs,
     ):
@@ -34,6 +35,7 @@ class BeamSearch(BaseSearch):
             lm_weight=lm_weight,
             score_norm=score_norm,
             nbest=nbest,
+            softmax_temperature=softmax_temperature,
             name=name,
             **kwargs,
         )
@@ -82,7 +84,8 @@ class BeamSearch(BaseSearch):
                 enc_out_t = tf.expand_dims(enc_out[t], axis=0)
                 # [1, 1, 1, V]
                 logp = tf.nn.log_softmax(
-                    self.joint_network(enc_out_t, dec_out),
+                    self.joint_network(enc_out_t, dec_out)
+                    / self.softmax_temperature,
                     axis=-1
                 )
                 # [V]

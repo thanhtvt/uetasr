@@ -19,6 +19,7 @@ class BaseSearch(tf.keras.layers.Layer):
         lm_weight: float = 0.0,
         score_norm: bool = False,
         nbest: int = 1,
+        softmax_temperature: float = 1.0,
         name: str = "base_search_transducer",
         **kwargs,
     ):
@@ -36,6 +37,7 @@ class BaseSearch(tf.keras.layers.Layer):
 
         self.nbest = nbest
         self.score_norm = score_norm
+        self.softmax_temperature = softmax_temperature
 
     def infer(
         self,

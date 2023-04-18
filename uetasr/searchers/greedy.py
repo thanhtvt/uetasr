@@ -20,6 +20,7 @@ class GreedySearch(BaseSearch):
         lm_weight: float = 0.0,
         score_norm: bool = False,
         nbest: int = 1,
+        softmax_temperature: float = 1.0,
         name: str = "greedy_search",
         **kwargs,
     ):
@@ -32,6 +33,7 @@ class GreedySearch(BaseSearch):
             lm_weight=lm_weight,
             score_norm=score_norm,
             nbest=nbest,
+            softmax_temperature=softmax_temperature,
             name=name,
             **kwargs,
         )
@@ -61,7 +63,8 @@ class GreedySearch(BaseSearch):
         for t in range(enc_len.numpy()):
             enc_out_t = tf.expand_dims(enc_out[t], axis=0)
             logp = tf.nn.log_softmax(
-                self.joint_network(enc_out_t, dec_out),
+                self.joint_network(enc_out_t, dec_out)
+                / self.softmax_temperature,
                 axis=-1
             )
             top_logp, pred = tf.math.top_k(logp, k=1)

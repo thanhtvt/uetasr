@@ -1,4 +1,5 @@
 import kenlm
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import \
     PreprocessingLayer
@@ -26,6 +27,7 @@ class ALSDSearch(BaseSearch):
         u_max: Union[int, float] = 50,
         score_norm: bool = False,
         nbest: int = 1,
+        softmax_temperature: float = 1.0,
         name: str = "alsd_search",
         **kwargs,
     ):
@@ -38,6 +40,7 @@ class ALSDSearch(BaseSearch):
             lm_weight=lm_weight,
             score_norm=score_norm,
             nbest=nbest,
+            softmax_temperature=softmax_temperature,
             name=name,
             **kwargs,
         )
@@ -54,7 +57,6 @@ class ALSDSearch(BaseSearch):
             nbest_hyps: N-best hypothesis.
         """
         beam = min(self.beam_size, self.vocab_size)
-        beam_k = min(beam, self.vocab_size - 1)
 
         t_max = get_shape(enc_out)[0]
         if 0 < self.u_max <= 1:
@@ -62,11 +64,13 @@ class ALSDSearch(BaseSearch):
         else:
             u_max = self.u_max
 
+        beam_state = self.decoder.make_initial_state(beam)
+
         B = [
             Hypothesis(
                 score=0.0,
                 yseq=[self.blank_id],
-                dec_state=self.decoder.make_initial_state(beam),
+                dec_state=self.decoder.select_state(beam_state, 0),
                 lm_state=self.lm.get_initial_state(beam) if self.lm else None)
         ]
 
@@ -84,8 +88,83 @@ class ALSDSearch(BaseSearch):
                 B_enc_out.append((t, enc_out[t]))
 
             if B_:
-                labels = tf.fill([1, 1], )
-                beam_dec_out, beam_state = self.decoder.infer(labels, )
+                labels = tf.convert_to_tensor([[hyp.yseq[-1]] for hyp in B_])
+                beam_dec_out, beam_state = self.decoder.infer(labels,
+                                                              states=beam_state,
+                                                              training=False)
+                beam_env_out = tf.stack([x[1] for x in B_enc_out])
+
+                beam_logp = tf.nn.log_softmax(
+                    self.joint_network(beam_enc_out, beam_dec_out)
+                    / self.softmax_temperature,
+                    axis=-1
+                )
+                beam_logp = tf.squeeze(beam_logp, axis=(0, 1))
+                beam_topk = tf.math.top_k(beam_logp[:, 1:], k=beam)
+                beam_topk_values = beam_topk.values.numpy()
+                beam_topk_indices = beam_topk.indices.numpy()
+
+                if self.lm:
+                    raise NotImplementedError("Not support LM for ALSD yet!")
+
+                for i, hyp in enumerate(B_):
+                    new_hyp = Hypothesis(
+                        score=hyp.score + float(beam_logp[i, 0]),
+                        yseq=hyp.yseq[:],
+                        dec_state=hyp.dec_state,
+                        lm_state=hyp.lm_state,
+                    )
+
+                    A.append(new_hyp)
+
+                    if B_enc_out[i][0] == t_max - 1:
+                        final.append(new_hyp)
+
+                    for logp, k in zip(beam_topk_values[i], beam_topk_indices[i] + 1):
+                        new_hyp = Hypothesis(
+                            score=hyp.score + float(logp),
+                            yseq=hyp.yseq[:] + [int(k)],
+                            dec_state=self.decoder.select_state(beam_state, i),
+                            lm_state=hyp.lm_state,
+                        )
+
+                        if self.lm:
+                            raise NotImplementedError("Not support LM for ALSD yet!")
+
+                        A.append(new_hyp)
+
+                B = sorted(A, key=lambda x: x.score, reverse=True)[:beam]
+                B = self.recombine_hyps(B)
+
+        if final:
+            return self.sort_nbest(final)
+        else:
+            return self.sort_nbest(B)
+
+
+    def recombine_hyps(self, hyps: List[Hypothesis]) -> List[Hypothesis]:
+        """Recombine hypotheses with same label ID sequence.
+
+        Args:
+            hyps: Hypotheses.
+
+        Returns:
+            final: Recombined hypotheses.
+        """
+        final = []
+
+        for hyp in hyps:
+            seq_final = [f.yseq for f in final if f.yseq]
+
+            if hyp.yseq in seq_final:
+                seq_pos = seq_final.index(hyp.yseq)
+
+                final[seq_pos].score = np.logaddexp(final[seq_pos].score,
+                                                    hyp.score)
+            else:
+                final.append(hyp)
+
+        return final
 
 
 class ALSDBeamRNNT(tf.keras.layers.Layer):
