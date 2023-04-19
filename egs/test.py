@@ -33,13 +33,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--beam_size",
-    type=int,
-    default=1,
-    help="Beam size in beam search.",
-)
-
-parser.add_argument(
     "--num_samples",
     type=int,
     default=-1,
