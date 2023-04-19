@@ -8,6 +8,7 @@ keras==2.10
 
 # ---------- audio ---------- #
 sentencepiece
+librosa
 kenlm
 
 # ---------- logger ---------- #

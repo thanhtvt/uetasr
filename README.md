@@ -4,6 +4,7 @@
 
 [![python](https://img.shields.io/badge/-Python_3.8_%7C_3.9_%7C_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![tensorflow](https://img.shields.io/badge/TensorFlow_2.8_%7C_2.9_%7C_2.10-orange?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/thanhtvt/uetasr)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/ashleve/lightning-hydra-template#license)
 
 </h1>
@@ -16,17 +17,6 @@ _Suggestions are always welcome!_
 
 <br>
 
-## TODO List
-- [x] Add more augmentation methods (e.g., Telephony, etc.).
-- [x] Support [WanDB](https://wandb.ai) for logging.
-- [x] Option to enable XLA compilation.
-- [x] Add metrics (WER/CER) computation.
-- [x] Add mixed-precision training.
-- [x] Add TFLite/SavedModel conversion.
-- [x] Support multi-batch inference for transducer models.
-- [x] Better configuration management.
-- [ ] Add demo on [HuggingFace spaces](https://huggingface.co/spaces).
-
 ## Key features
 
 UETASR provides various useful tools to speed up and facilitate research on speech technologies:
@@ -36,6 +26,10 @@ UETASR provides various useful tools to speed up and facilitate research on spee
 - Single and Multi-GPUs training and inference with TensorFlow 2 Data-Parallel or Distributed Data-Parallel.
 
 - A transparent and entirely customizable data input and output pipeline, enabling users to customize the I/O pipelines.
+
+- Logging and visualization with [WandB](https://wandb.ai) and [TensorBoard](https://www.tensorflow.org/tensorboard).
+
+- Error analysis tools to help users debug their models.
 
 ### Supported Models
 
@@ -115,11 +109,17 @@ docker run -it --name uetasr --gpus all -v <workspace_dir>:/workspace uetasr:v1.
 ```
 
 ## Getting Started
-1. Define config YAML file, see the `config.yaml` file [this folder](./egs/vlsp2022/v1/) for reference.
-2. *Complete later...*
+1. Define config YAML file, see the `config.yaml` file [this folder](./egs/vlsp2022/conformer/v3/) for reference.
+2. Download your corpus and create a script to generate the .tsv file (see [this file](./egs/vlsp2022/conformer/data/vlsp2022-labeled.tsv) for reference). Check our provided [`tools`](./tools) whether they meet your need.
+3. Create `transcript.txt` and `cmvn.tsv` files for your corpus. We implement [this script](./tools/cmvn_transcript_generator.py) to generate those files, knowing the .tsv file generated in step 2.
+4. For training, check `train.py` in the `egs` folder to see the options.
+5. For testing, check `test.py` in the `egs` folder to see the options.
+6. For evaluating and error analysis, check `asr_evaluation.py` in the `tools` folder to see the options.
+7. [Optional] To publish your model on 🤗, check this [space](https://huggingface.co/spaces/thanhtvt/uetasr) for reference.
 
 ## References & Credits
 1. [namnv1906](https://github.com/namnv1906/) (for the guidance & initial version of this toolkit)
-2. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
-3. [TensorFlowASR: Almost State-of-the-art Automatic Speech Recognition in Tensorflow 2](https://github.com/TensorSpeech/TensorFlowASR)
-4. [Python module for evaluting ASR hypotheses](https://github.com/belambert/asr-evaluation)
+2. [TensorFlowASR: Almost State-of-the-art Automatic Speech Recognition in Tensorflow 2](https://github.com/TensorSpeech/TensorFlowASR)
+3. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
+4. [SpeechBrain: A PyTorch-based Speech Toolkit](https://github.com/speechbrain/speechbrain)
+5. [Python module for evaluting ASR hypotheses](https://github.com/belambert/asr-evaluation)
