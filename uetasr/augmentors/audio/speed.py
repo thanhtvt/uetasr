@@ -2,6 +2,7 @@ import math
 import numpy as np
 from typing import Union, List
 import tensorflow as tf
+from librosa.effects import time_stretch
 from tensorflow.keras.layers.experimental.preprocessing \
     import PreprocessingLayer
 
@@ -9,6 +10,39 @@ from ...utils.common import get_shape
 
 
 class TimeStretch(PreprocessingLayer):
+    
+    def __init__(
+        self,
+        prob: float = 0.5,
+        min_speed_rate: float = 0.8,
+        max_speed_rate: float = 1.1,
+        name='time_stretch',
+    ):
+        super().__init__(trainable=False, name=name)
+        self.prob = prob
+        self.min_speed_rate = min_speed_rate
+        self.max_speed_rate = max_speed_rate
+
+    def call(self, audio: tf.Tensor) -> tf.Tensor:
+        speed_rate = tf.random.uniform(shape=(),
+                                       minval=self.min_speed_rate,
+                                       maxval=self.max_speed_rate,
+                                       dtype=tf.float32)
+        augmented_audio = tf.numpy_function(time_stretch_librosa, [audio, speed_rate], tf.float32)
+        prob = tf.random.uniform(shape=(),
+                                 minval=0,
+                                 maxval=1,
+                                 dtype=tf.float32)
+        return tf.cond(prob <= self.prob,
+                       lambda: augmented_audio,
+                       lambda: audio)
+
+
+def time_stretch_librosa(audio, stretch_factor):
+    return time_stretch(audio, rate=stretch_factor)
+
+
+class TimeStretch2(PreprocessingLayer):
 
     def __init__(self,
                  prob: float = 0.5,
