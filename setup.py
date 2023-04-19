@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as fh:
     install_requires = fh.read().splitlines()
 
-version = "0.0.1"
+version = "0.1.0"
 
 with open(os.path.join("uetasr", "version.py"), "w") as f:
     f.writelines([

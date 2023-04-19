@@ -142,7 +142,7 @@ test_data: !new:tensorflow.data.experimental.CsvDataset
     record_defaults: [!ref <tf_string>, !ref <tf_string>]
 
 test_loader: !new:uetasr.dataloaders.asr.ASRDataloader
-    name: !ref <test_name>-avg2529
+    name: !ref <test_name>
     data: !ref <test_data>
     text_encoder: !ref <text_encoder>
     audio_encoder: !ref <audio_encoder>
