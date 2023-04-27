@@ -358,18 +358,7 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
             scores = self.recombine_hypotheses(hyps, scores)
 
             new_cur_states = []
-            for cur_state, next_state in zip(cur_states, next_states):
-                if not hasattr(next_state, '__iter__'):
-                    new_cur_state = tf.where(_equal, cur_state, next_state)
-                else:
-                    new_cur_state = []
-                    for cs, ns in zip(cur_state, next_state):
-                        cs = tf.gather(cs, best_hyp_indices, axis=0)
-                        ns = tf.gather(ns, best_hyp_indices, axis=0)
-                        ncs = tf.where(_equal, cs, ns)
-                        new_cur_state.append(ncs)
-                new_cur_states.append(new_cur_state)
-            cur_states = new_cur_states
+            cur_states = tf.where(_equal, cur_states, next_states)
 
             i = tf.where(i < total_lengths - 1, i + 1, i)
             ends_flag = tf.greater_equal(i, total_lengths - 1)
@@ -384,6 +373,7 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
             scores = tf.reshape(scores, [batch_size, -1])
             # (B)
             best_index = tf.argmax(scores, axis=1, output_type=tf.int32)
+            best_scores = tf.reduce_max(scores, axis=1)
 
             beam_idx = best_index // len(final)
             final_idx = best_index % len(final)
@@ -398,7 +388,7 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
         else:
             preds = tf.zeros([batch_size, 1], dtype=tf.int32)
 
-        return self.text_decoder.decode(preds)
+        return self.text_decoder.decode(preds), best_scores
 
     def recombine_hypotheses(self, hyps, scores):
         """
