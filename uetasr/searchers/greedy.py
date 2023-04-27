@@ -149,13 +149,16 @@ class GreedyRNNT(tf.keras.layers.Layer):
             (hyps, cur_tokens, encoder_next_states, cur_states), axis=1)
         return outputs, is_blanks, cached_states
 
+    @tf.function
     def infer(
         self,
         encoder_outputs: tf.Tensor,
         encoder_lengths: tf.Tensor
     ) -> tf.Tensor:
 
-        batch_size, num_frames = tf.shape(encoder_outputs)[:2]
+        # batch_size, num_frames = tf.shape(encoder_outputs)[:2]
+        batch_size = tf.shape(encoder_outputs)[0]
+        num_frames = tf.shape(encoder_outputs)[1]
         cur_tokens = tf.fill([batch_size, 1], self.blank_id)
         cur_states = self.decoder.make_initial_states(batch_size)
         cur_states = tf.nest.flatten(cur_states)
@@ -164,6 +167,9 @@ class GreedyRNNT(tf.keras.layers.Layer):
         blanks = tf.fill([batch_size, 1], self.blank_id)
         hyps = tf.zeros((batch_size, 1), dtype=tf.int32)
         for i in range(num_frames):
+            tf.autograph.experimental.set_loop_options(
+                shape_invariants=[(hyps, tf.TensorShape([None, None]))]
+            )
             end_flag = tf.fill([batch_size, 1], False)
             enc = tf.expand_dims(encoder_outputs[:, i, :], axis=1)
             for _ in range(self.max_symbols_per_step):
@@ -189,8 +195,8 @@ class GreedyRNNT(tf.keras.layers.Layer):
 
                 cur_states = tf.where(_equal, cur_states, next_states)
 
-                if _equal.numpy().all():
-                    break
+                # if _equal.numpy().all():
+                #     break
 
         return self.text_decoder.decode(hyps), scores
 
