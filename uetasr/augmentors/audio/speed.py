@@ -10,7 +10,7 @@ from ...utils.common import get_shape
 
 
 class TimeStretch(PreprocessingLayer):
-    
+
     def __init__(
         self,
         prob: float = 0.5,
@@ -28,7 +28,9 @@ class TimeStretch(PreprocessingLayer):
                                        minval=self.min_speed_rate,
                                        maxval=self.max_speed_rate,
                                        dtype=tf.float32)
-        augmented_audio = tf.numpy_function(time_stretch_librosa, [audio, speed_rate], tf.float32)
+        augmented_audio = tf.numpy_function(time_stretch_librosa,
+                                            inp=[audio, speed_rate],
+                                            Tout=tf.float32)
         prob = tf.random.uniform(shape=(),
                                  minval=0,
                                  maxval=1,

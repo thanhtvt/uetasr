@@ -2,11 +2,10 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import \
     PreprocessingLayer
-from typing import List, Union
+from typing import List
 
 from .hypothesis import Hypothesis
 from .base import BaseSearch
-from ..utils.common import get_shape
 
 
 class TSDSearch(BaseSearch):
@@ -37,7 +36,7 @@ class TSDSearch(BaseSearch):
         name: str = "alsd_search",
         **kwargs,
     ):
-        super(ALSDSearch, self).__init__(
+        super(TSDSearch, self).__init__(
             decoder=decoder,
             joint_network=joint_network,
             text_decoder=text_decoder,

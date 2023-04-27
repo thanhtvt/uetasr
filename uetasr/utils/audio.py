@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-from .common import get_shape
-
 
 def load_audio(audio_path: str):
     audio = tf.io.read_file(audio_path)
@@ -24,7 +22,7 @@ def fix_length(audio: tf.Tensor, target_size: int, axis: int = -1):
         slices = [slice(None)] * audio.ndim
         slices[axis] = slice(0, target_size)
         return audio[tuple(slices)]
-    elif n < size:
+    elif n < target_size:
         lengths = [(0, 0)] * audio.ndim
         lengths[axis] = (0, target_size - n)
         return tf.pad(audio, lengths)
