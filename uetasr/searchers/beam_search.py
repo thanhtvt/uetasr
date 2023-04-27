@@ -173,19 +173,22 @@ class BeamRNNT(tf.keras.layers.Layer):
         self.beam = beam
         self.alpha = alpha
         self.lmwt = lmwt
-        if lm:
-            lm.load_weights(lm_path).expect_partial()
-            # lm = kenlm.LanguageModel(lm_path)
+        # if lm:
+        #     lm.load_weights(lm_path).expect_partial()
+        #     lm = kenlm.LanguageModel(lm_path)
         self.lm = lm
         self.blank_id = text_decoder.pad_id
         self.max_symbols_per_step = max_symbols_per_step
         self.return_scores = return_scores
 
+    @tf.function
     def infer(self, encoder_outputs: Union[tf.Tensor, np.ndarray],
               encoder_lengths: Union[tf.Tensor, np.ndarray]) -> tf.Tensor:
 
         beam_size = self.beam
-        batch_size, num_frames = tf.shape(encoder_outputs)[:2]
+        # batch_size, num_frames = tf.shape(encoder_outputs)[:2]
+        batch_size = tf.shape(encoder_outputs)[0]
+        num_frames = tf.shape(encoder_outputs)[1]
 
         zeros = tf.fill([batch_size * beam_size, beam_size], 0.0)
         inf = tf.fill([batch_size * beam_size, 1], -float('inf'))
@@ -196,8 +199,8 @@ class BeamRNNT(tf.keras.layers.Layer):
         # cur_states = tf.nest.flatten(cur_states)
         # cur_states = tf.concat(cur_states, axis=1)
 
-        if self.lm:
-            lm_cur_states = self.lm.make_initial_states(batch_size * beam_size)
+        # if self.lm:
+        #     lm_cur_states = self.lm.make_initial_states(batch_size * beam_size)
             # lm_cur_states = tf.nest.flatten(lm_cur_states)
             # lm_cur_states = tf.concat(lm_cur_states, axis=1)
             # lm_cur_states = [kenlm.State() for _ in range(batch_size * beam_size)]
@@ -214,6 +217,9 @@ class BeamRNNT(tf.keras.layers.Layer):
             [batch_size, 1])
         scores = tf.reshape(scores, [-1, 1])
         for i in tf.range(num_frames):
+            tf.autograph.experimental.set_loop_options(
+                shape_invariants=[(hyps, tf.TensorShape([None, None]))]
+            )
             enc = tf.repeat(tf.expand_dims(encoder_outputs[:, i, :], axis=1),
                             beam_size,
                             axis=0)
@@ -224,17 +230,17 @@ class BeamRNNT(tf.keras.layers.Layer):
                                                       training=False,
                                                       states=cur_states)
 
-                if self.lm:
-                    lm_outs, lm_next_states = self.lm.infer(
-                        cur_tokens, training=False, states=lm_cur_states)
-                    # [B x b, n x dim x 2]
-                    lm_next_states = tf.repeat(lm_next_states,
-                                               repeats=beam_size,
-                                               axis=0)
-                    # [B x b, 1, V]
-                    lm_outs = tf.squeeze(lm_outs, axis=1)
-                    # [B x b, V]
-                    lm_outs = tf.nn.log_softmax(lm_outs)
+                # if self.lm:
+                #     lm_outs, lm_next_states = self.lm.infer(
+                #         cur_tokens, training=False, states=lm_cur_states)
+                #     # [B x b, n x dim x 2]
+                #     lm_next_states = tf.repeat(lm_next_states,
+                #                                repeats=beam_size,
+                #                                axis=0)
+                #     # [B x b, 1, V]
+                #     lm_outs = tf.squeeze(lm_outs, axis=1)
+                #     # [B x b, V]
+                #     lm_outs = tf.nn.log_softmax(lm_outs)
 
                 pred = self.jointer(enc, dec, training=False)
                 pred = tf.squeeze(pred, axis=[1, 2])
@@ -246,14 +252,14 @@ class BeamRNNT(tf.keras.layers.Layer):
                 # [B x b, b]
                 topk_logp_index = topk_logp.indices
 
-                if self.lm:
-                    # [B x b, b]
-                    topk_logp_lm = tf.gather(lm_outs,
-                                             topk_logp_index,
-                                             axis=1,
-                                             batch_dims=1)
-                    topk_logp_lm = tf.where(topk_logp_index == self.blank_id,
-                                            0.0, topk_logp_lm)
+                # if self.lm:
+                #     # [B x b, b]
+                #     topk_logp_lm = tf.gather(lm_outs,
+                #                              topk_logp_index,
+                #                              axis=1,
+                #                              batch_dims=1)
+                #     topk_logp_lm = tf.where(topk_logp_index == self.blank_id,
+                #                             0.0, topk_logp_lm)
 
                 flag = tf.math.logical_or(end_flag, encoder_lengths <= i)
                 if beam_size > 1:
@@ -273,9 +279,9 @@ class BeamRNNT(tf.keras.layers.Layer):
                 topk_logp_value = tf.where(unfinished, inf, topk_logp_value)
                 topk_logp_value = tf.where(finished, zeros, topk_logp_value)
 
-                if self.lm:
-                    topk_logp_lm = tf.where(unfinished, inf, topk_logp_lm)
-                    topk_logp_lm = tf.where(finished, zeros, topk_logp_lm)
+                # if self.lm:
+                #     topk_logp_lm = tf.where(unfinished, inf, topk_logp_lm)
+                #     topk_logp_lm = tf.where(finished, zeros, topk_logp_lm)
 
                 topk_logp_index = tf.where(
                     tf.repeat(tf.squeeze(flag, axis=1), beam_size),
@@ -284,8 +290,8 @@ class BeamRNNT(tf.keras.layers.Layer):
 
                 # [B x b, b]
                 scores = scores + topk_logp_value
-                if self.lm:
-                    scores = scores + self.lmwt * topk_logp_lm
+                # if self.lm:
+                #     scores = scores + self.lmwt * topk_logp_lm
 
                 lengths = tf.cast(tf.not_equal(hyps, self.blank_id),
                                   dtype=tf.float32)
@@ -347,7 +353,7 @@ class BeamRNNT(tf.keras.layers.Layer):
                 # cur_tokens is not true with new next_tokens, regather them from best_hyps
                 hyps_mask = tf.where(best_hyps != self.blank_id, 1, 0)
                 last_nonzero_indices = tf.argmax(tf.multiply(
-                    hyps_mask, tf.range(1, best_hyps.shape[1] + 1)),
+                    hyps_mask, tf.range(1, tf.shape(best_hyps)[1] + 1)),
                                                  axis=1,
                                                  output_type=tf.int32)
                 cur_tokens = tf.gather(best_hyps,
@@ -377,18 +383,18 @@ class BeamRNNT(tf.keras.layers.Layer):
                 next_states = tf.gather(next_states, best_index, axis=0)
 
                 cur_states = tf.where(end_flag, cur_states, next_states)
-                if self.lm:
-                    lm_cur_states = tf.gather(lm_cur_states,
-                                              best_hyp_index,
-                                              axis=0)
-                    lm_next_states = tf.gather(lm_next_states,
-                                               best_index,
-                                               axis=0)
-                    lm_cur_states = tf.where(end_flag, lm_cur_states,
-                                             lm_next_states)
+                # if self.lm:
+                #     lm_cur_states = tf.gather(lm_cur_states,
+                #                               best_hyp_index,
+                #                               axis=0)
+                #     lm_next_states = tf.gather(lm_next_states,
+                #                                best_index,
+                #                                axis=0)
+                #     lm_cur_states = tf.where(end_flag, lm_cur_states,
+                #                              lm_next_states)
 
-                if _equal.numpy().all():
-                    break
+                # if _equal.numpy().all():
+                #     break
 
         # [B, b]
         scores = tf.reshape(scores, [batch_size, beam_size])
