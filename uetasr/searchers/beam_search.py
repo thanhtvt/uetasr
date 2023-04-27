@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import \
@@ -164,6 +163,7 @@ class BeamRNNT(tf.keras.layers.Layer):
                  lmwt: float = 0.3,
                  lm_path: str = '',
                  lm: tf.keras.Model = None,
+                 return_scores: bool = True,
                  name: str = 'beam_rnnt',
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -179,6 +179,7 @@ class BeamRNNT(tf.keras.layers.Layer):
         self.lm = lm
         self.blank_id = text_decoder.pad_id
         self.max_symbols_per_step = max_symbols_per_step
+        self.return_scores = return_scores
 
     def infer(self, encoder_outputs: Union[tf.Tensor, np.ndarray],
               encoder_lengths: Union[tf.Tensor, np.ndarray]) -> tf.Tensor:
@@ -401,4 +402,7 @@ class BeamRNNT(tf.keras.layers.Layer):
         best_scores = tf.reduce_max(scores, axis=-1)
         outputs = self.text_decoder.decode(best_hyps)
 
-        return outputs, best_scores
+        if self.return_scores:
+            return outputs, best_scores
+        else:
+            return outputs

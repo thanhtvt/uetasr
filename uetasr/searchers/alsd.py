@@ -92,7 +92,7 @@ class ALSDSearch(BaseSearch):
                 beam_dec_out, beam_state = self.decoder.infer(labels,
                                                               states=beam_state,
                                                               training=False)
-                beam_env_out = tf.stack([x[1] for x in B_enc_out])
+                beam_enc_out = tf.stack([x[1] for x in B_enc_out])
 
                 beam_logp = tf.nn.log_softmax(
                     self.joint_network(beam_enc_out, beam_dec_out)
@@ -141,7 +141,6 @@ class ALSDSearch(BaseSearch):
         else:
             return self.sort_nbest(B)
 
-
     def recombine_hyps(self, hyps: List[Hypothesis]) -> List[Hypothesis]:
         """Recombine hypotheses with same label ID sequence.
 
@@ -174,7 +173,8 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
     """
 
     def __init__(self,
-                 model: tf.keras.Model,
+                 decoder: tf.keras.Model,
+                 jointer: tf.keras.Model,
                  text_decoder: PreprocessingLayer,
                  fraction: float = 0.65,
                  beam_size: int = 16,
@@ -182,17 +182,19 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
                  use_lm: bool = False,
                  lmwt: float = 0.5,
                  lm_path: str = '',
+                 return_scores: bool = True,
                  name: str = 'alsd_rnnt',
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.decoder = model.decoder
-        self.jointer = model.jointer
+        self.decoder = decoder
+        self.jointer = jointer
         self.text_decoder = text_decoder
         self.blank_id = text_decoder.pad_id
         self.beam_size = beam_size
         self.temperature = temperature
         self.fraction = fraction
         self.use_lm = use_lm
+        self.return_scores = return_scores
 
         if use_lm:
             self.lm = kenlm.LanguageModel(lm_path)
@@ -357,7 +359,6 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
             hyps = tf.concat([best_hyps, hyp], axis=1)
             scores = self.recombine_hypotheses(hyps, scores)
 
-            new_cur_states = []
             cur_states = tf.where(_equal, cur_states, next_states)
 
             i = tf.where(i < total_lengths - 1, i + 1, i)
@@ -388,7 +389,10 @@ class ALSDBeamRNNT(tf.keras.layers.Layer):
         else:
             preds = tf.zeros([batch_size, 1], dtype=tf.int32)
 
-        return self.text_decoder.decode(preds), best_scores
+        if self.return_scores:
+            return self.text_decoder.decode(preds), best_scores
+        else:
+            return self.text_decoder.decode(preds)
 
     def recombine_hypotheses(self, hyps, scores):
         """

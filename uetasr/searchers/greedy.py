@@ -89,6 +89,7 @@ class GreedyRNNT(tf.keras.layers.Layer):
                  jointer: tf.keras.Model,
                  text_decoder: PreprocessingLayer,
                  max_symbols_per_step: int = 3,
+                 return_scores: bool = True,
                  name: str = 'greedy_rnnt',
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -97,6 +98,7 @@ class GreedyRNNT(tf.keras.layers.Layer):
         self.text_decoder = text_decoder
         self.blank_id = text_decoder.pad_id
         self.max_symbols_per_step = max_symbols_per_step
+        self.return_scores = return_scores
 
     @tf.function
     def call(
@@ -192,7 +194,10 @@ class GreedyRNNT(tf.keras.layers.Layer):
                 if _equal.numpy().all():
                     break
 
-        return self.text_decoder.decode(hyps), scores
+        if self.return_scores:
+            return self.text_decoder.decode(hyps), scores
+        else:
+            return self.text_decoder.decode(hyps)
 
     def infer_step(self,
                    encoder_outputs: tf.Tensor,
