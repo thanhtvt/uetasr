@@ -53,12 +53,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--summary",
-    action="store_true",
-    help="Enable to print summary.",
-)
-
-parser.add_argument(
     "--verbose",
     action="store_true",
     help="Enable to print samples in test set.",
@@ -74,11 +68,6 @@ exp_dir = os.path.dirname(args.config)
 def test(config_file):
     with open(config_file) as fin:
         modules = load_hyperpyyaml(fin)
-
-        if args.summary:
-            model = modules['model']
-            model.summary()
-
         test_loader = modules['test_loader']
         trainer = modules['trainer']
 

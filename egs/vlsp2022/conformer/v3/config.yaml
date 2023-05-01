@@ -324,7 +324,6 @@ callbacks:
 ## =================== TRAINER =================== ##
 trainer: !new:uetasr.trainers.trainer.ASRTrainer
     model: !ref <model>
-    learning_rate: !ref <lr>
     beam_decoder: !ref <decoder>
     optimizer: !ref <optimizer>
     losses: [!ref <rnnt_loss>]

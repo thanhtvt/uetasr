@@ -125,3 +125,4 @@ docker run -it --name uetasr --gpus all -v <workspace_dir>:/workspace uetasr:v1.
 3. [ESPNet: End-to-End Speech Processing Toolkit](https://github.com/espnet/espnet)
 4. [SpeechBrain: A PyTorch-based Speech Toolkit](https://github.com/speechbrain/speechbrain)
 5. [Python module for evaluting ASR hypotheses](https://github.com/belambert/asr-evaluation)
+6. [Accumulated Gradients for TensorFlow 2](https://github.com/andreped/GradientAccumulator)

@@ -18,7 +18,6 @@ class ASRTrainer(BaseTrainer):
     def __init__(
         self,
         model: tf.keras.Model,
-        learning_rate: Union[float, LearningRateSchedule],
         beam_decoder: tf.keras.layers.Layer,
         optimizer: tf.keras.optimizers.Optimizer,
         log_append: bool = False,
@@ -27,6 +26,7 @@ class ASRTrainer(BaseTrainer):
         loss_weights: List[float] = [],
         metrics: List[tf.keras.metrics.Metric] = [],
         num_epochs: int = 1,
+        finetune: bool = False,
         jit_compile: bool = False,
         steps_per_execution: int = 1,
         callbacks: List[tf.keras.callbacks.Callback] = [],
@@ -38,12 +38,13 @@ class ASRTrainer(BaseTrainer):
         if accum_steps > 1 and has_devices("GPU"):
             if get_num_devices("GPU") > 1:
                 optimizer = GradientAccumulator(optimizer, accum_steps)
-            # elif get_num_devices("GPU") == 1:  # GA model is not stable multi-gpus
-            #     model = GradientAccumulateModel(accum_steps=accum_steps,
-            #                                     mixed_precision=False,
-            #                                     use_agc=True,
-            #                                     inputs=model.input,
-            #                                     outputs=model.output)
+            elif get_num_devices("GPU") == 1:  # GA model is not stable multi-gpus
+                model.summary()  # this is necessary to build model
+                model = GradientAccumulateModel(accum_steps=accum_steps,
+                                                mixed_precision=False,
+                                                use_agc=True,
+                                                inputs=model.input,
+                                                outputs=model.output)
 
         self.optimizer = optimizer
         self.model = model
@@ -51,6 +52,15 @@ class ASRTrainer(BaseTrainer):
         if pretrained_model:
             self.load_model(pretrained_model)
 
+        if finetune:
+            # freeze model except last layers
+            for layer in self.model.layers:
+                layer.trainable = False
+                if layer.name == "rnnt_jointer":
+                    layer.trainable = True
+                    break
+
+        self.model.summary()
         self.model.compile(loss=losses,
                            loss_weights=loss_weights,
                            optimizer=optimizer,

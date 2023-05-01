@@ -48,7 +48,6 @@ def train(config_file):
     with open(config_file) as fin:
         modules = load_hyperpyyaml(fin)
         model = modules['model']
-        model.summary()
         train_loader = modules['train_loader']
         dev_loader = modules['dev_loader']
         cmvn_loader = None
