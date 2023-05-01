@@ -22,22 +22,22 @@ class GradientAccumulateModel(tf.keras.Model):
                                        dtype=tf.int32,
                                        name="accum_steps")
         self.accum_step_counter = tf.Variable(
-            0,
-            dtype=tf.int32,
-            trainable=False,
-            name="accum_counter",
+            0, dtype=tf.int32, trainable=False, name="accum_counter",
             synchronization=tf.VariableSynchronization.ON_READ,
             aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
         )
         self.first_call = True
-        self.gradient_accumulation = None
-        self.reinit_grad_accum()
         self.mixed_precision = mixed_precision
         self.use_agc = use_agc
         self.clip_factor = clip_factor
         self.eps = eps
+        # TODO: Does this dynamically changes based on mixed precision/variables dtype?
+        self.dtype_value = self.dtype
+        self.gradient_accumulation = None
+        self.reinit_grad_accum()
 
     def train_step(self, data):
+        """Performs single train step."""
         # need to reinit accumulator for models subclassed from tf.keras.Model
         if self.first_call:
             self.reinit_grad_accum()
@@ -67,37 +67,36 @@ class GradientAccumulateModel(tf.keras.Model):
                 sample_weight=sample_weight,
                 regularization_losses=self.losses,
             )
-            loss = loss / tf.cast(
-                self.accum_steps,
-                tf.float32)  # MEAN reduction here IMPORTANT! Don't use SUM!
+            # MEAN reduction here IMPORTANT! Don't use SUM!
+            loss = loss / tf.cast(self.accum_steps, loss.dtype)
 
             # scale loss if mixed precision is enabled
             if self.mixed_precision:
                 loss = self.optimizer.get_scaled_loss(loss)
 
-        # Calculate batch gradients -> these are scaled gradients if
-        # mixed precision is enabled
+        # Calculate batch gradients -> these are scaled gradients if mixed precision is enabled
         gradients = tape.gradient(
             loss,
             self.trainable_variables,
-            unconnected_gradients=tf.UnconnectedGradients.ZERO)
+            unconnected_gradients=tf.UnconnectedGradients.ZERO
+        )
 
         # scale gradients if mixed precision is enabled
         if self.mixed_precision:
             gradients = self.optimizer.get_unscaled_gradients(gradients)
 
-        # apply adaptive gradient clipping
-        # -> should be AFTER unscaling gradients
+        # apply adaptive gradient clipping -> should be AFTER unscaling gradients
         if self.use_agc:
-            gradients = adaptive_clip_grad(self.trainable_variables,
-                                           gradients,
-                                           clip_factor=self.clip_factor,
-                                           eps=self.eps)
+            gradients = adaptive_clip_grad(
+                self.trainable_variables,
+                gradients,
+                clip_factor=self.clip_factor,
+                eps=self.eps
+            )
 
         # Accumulate batch gradients
         for i in range(len(self.gradient_accumulation)):
-            self.gradient_accumulation[i].assign_add(gradients[i],
-                                                     read_value=False)
+            self.gradient_accumulation[i].assign_add(gradients[i], read_value=False)
 
         # If accum_step_counter reach the accum_steps
         # then we apply accumulated gradients to update the variables
@@ -107,12 +106,11 @@ class GradientAccumulateModel(tf.keras.Model):
                 false_fn=lambda: None)
 
         # update metrics
-        self.compiled_metrics.update_state(y,
-                                           y_pred,
-                                           sample_weight=sample_weight)
+        self.compiled_metrics.update_state(y, y_pred, sample_weight=sample_weight)
         return {m.name: m.result() for m in self.metrics}
 
     def apply_accu_gradients(self):
+        """Performs gradient update and resets slots afterwards."""
         # apply accumulated gradients
         self.optimizer.apply_gradients(
             zip(self.gradient_accumulation, self.trainable_variables))
@@ -120,18 +118,19 @@ class GradientAccumulateModel(tf.keras.Model):
         # reset
         self.accum_step_counter.assign(0)
         for i in range(len(self.gradient_accumulation)):
-            self.gradient_accumulation[i].assign(tf.zeros_like(
-                self.trainable_variables[i], dtype=tf.float32),
-                                                 read_value=False)
+            self.gradient_accumulation[i].assign(
+                tf.zeros_like(self.trainable_variables[i],
+                              dtype=self.dtype_value),
+                read_value=False
+            )
 
     def reinit_grad_accum(self):
-        # reinitialize gradient accumulator
+        """Reinitialized gradient accumulator slots."""
         self.gradient_accumulation = [
-            tf.Variable(
-                tf.zeros_like(v, dtype=tf.float32),
-                trainable=False,
-                name="accum_" + str(i),
-                synchronization=tf.VariableSynchronization.ON_READ,
-                aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
-            ) for i, v in enumerate(self.trainable_variables)
+            tf.Variable(tf.zeros_like(v, dtype=self.dtype_value),
+                        trainable=False,
+                        name="accum_" + str(i),
+                        synchronization=tf.VariableSynchronization.ON_READ,
+                        aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+                        ) for i, v in enumerate(self.trainable_variables)
         ]
