@@ -248,6 +248,21 @@ class ConformerLayer(tf.keras.Model):
 
         return sequence, mask
 
+    def get_config(self):
+        conf = super(ConformerLayer, self).get_config()
+        conf.update({"size": self.size, "feed_forward_scale": self.feed_forward_scale})
+        conf.update(self.self_att.get_config())
+        conf.update(self.feed_forward.get_config())
+        conf.update(self.feed_forward_macaron.get_config())
+        conf.update(self.conv_mod.get_config())
+        conf.update(self.norm_multihead_att.get_config())
+        conf.update(self.norm_feed_forward.get_config())
+        conf.update(self.norm_macaron.get_config()) if self.feed_forward_macaron else None
+        conf.update(self.norm_conv.get_config()) if self.conv_mod else None
+        conf.update(self.norm_final.get_config()) if self.conv_mod else None
+        conf.update(self.dropout.get_config())
+        return conf
+
 
 class Conformer(tf.keras.Model):
 
@@ -396,3 +411,16 @@ class Conformer(tf.keras.Model):
             sequence = self.after_norm(sequence, training=training)
 
         return sequence, masks
+
+    def get_config(self):
+        conf = super(Conformer, self).get_config()
+        conf.update({
+            "num_features": self.num_features,
+            "window_size": self.window_size,
+            "d_model": self.d_model,
+        })
+        conf.update(self.embed.get_config())
+        conf.update(self.after_norm.get_config())
+        for encoder in self.encoders:
+            conf.update(encoder.get_config())
+        return conf

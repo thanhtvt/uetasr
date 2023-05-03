@@ -117,3 +117,19 @@ class RNNDecoder(tf.keras.Model):
         fin_states = tf.nest.flatten(fin_states)
         fin_states = tf.concat(fin_states, axis=1)
         return fin_states
+
+    def get_config(self):
+        config = super(RNNDecoder, self).get_config()
+        config.update({
+            'vocab_size': self.vocab_size,
+            'hidden_dim': self.hidden_dim,
+            'use_softmax': self.use_softmax,
+        })
+        config.update(self.embed.get_config())
+        config.update(self.dropout_embed.get_config())
+        config.update(self.dropout_rnn.get_config())
+        for rnn, ln, fc in self.rnns:
+            config.update(rnn.get_config())
+            config.update(ln.get_config())
+            config.update(fc.get_config())
+        return config

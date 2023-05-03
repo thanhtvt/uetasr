@@ -72,3 +72,14 @@ class RNNTJointer(tf.keras.Model):
         x = self.activation(x, training=training)
         x = self.out(x, training=training)
         return x
+
+    def get_config(self):
+        conf = super(RNNTJointer, self).get_config()
+        conf.update({'encoder_dim': self.encoder_dim,
+                     'decoder_dim': self.decoder_dim})
+        conf.update(self.activation.get_config())
+        conf.update(self.enc_fc.get_config())
+        conf.update(self.dec_fc.get_config())
+        conf.update(self.joint.get_config())
+        conf.update(self.out.get_config())
+        return conf

@@ -47,6 +47,14 @@ class PositionwiseFeedForward(Layer):
         x = self.w_2(x, training=training)
         return x
 
+    def get_config(self):
+        conf = super(PositionwiseFeedForward, self).get_config()
+        conf.update(self.w_1.get_config())
+        conf.update(self.w_2.get_config())
+        conf.update(self.dropout.get_config())
+        conf.update(self.activation.get_config())
+        return conf
+
 
 class PointwiseFeedForward(tf.keras.layers.Layer):
 
@@ -118,3 +126,13 @@ class PointwiseFeedForward(tf.keras.layers.Layer):
         output = self.add2([output_ffn, output], training=training)
         output = self.layernorm_out(output, training=training)
         return output
+
+    def get_config(self):
+        conf = super(PointwiseFeedForward, self).get_config()
+        conf.update({"input_dim": self.input_dim})
+        conf.update(self.dropout.get_config())
+        conf.update(self.ffn.get_config())
+        conf.update(self.layernorm_out.get_config())
+        conf.update(self.add1.get_config())
+        conf.update(self.add2.get_config())
+        return conf

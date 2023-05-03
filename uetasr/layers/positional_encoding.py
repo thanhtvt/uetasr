@@ -37,6 +37,16 @@ class PositionalEncoding(tf.keras.layers.Layer):
         outputs = inputs * self.xscale + self.pe[:, tf.shape(inputs)[1]]
         return self.dropout(outputs, training=training)
 
+    def get_config(self):
+        config = super(PositionalEncoding, self).get_config()
+        config.update({
+            'd_model': self.d_model,
+            'xscale': self.xscale,
+            'pe': self.pe
+        })
+        config.update(self.dropout.get_config())
+        return config
+
 
 class ScaledPositionalEncoding(PositionalEncoding):
     """Scaled positional encoding module.
@@ -63,6 +73,11 @@ class ScaledPositionalEncoding(PositionalEncoding):
         """
         outputs = inputs + self.alpha * self.pe[:, tf.shape(inputs)[1]]
         return self.dropout(outputs, training=training)
+
+    def get_config(self):
+        config = super(ScaledPositionalEncoding, self).get_config()
+        config.update({'alpha': self.alpha})
+        return config
 
 
 class RelPositionalEncoding(tf.keras.layers.Layer):
@@ -121,3 +136,14 @@ class RelPositionalEncoding(tf.keras.layers.Layer):
         return self.dropout(inputs,
                             training=training), self.dropout(pos_emb,
                                                              training=training)
+
+    def get_config(self):
+        config = super(RelPositionalEncoding, self).get_config()
+        config.update({
+            'd_model': self.d_model,
+            'max_len': self.max_len,
+            'xscale': self.xscale,
+            'pe': self.pe
+        })
+        config.update(self.dropout.get_config())
+        return config

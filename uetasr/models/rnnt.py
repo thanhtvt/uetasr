@@ -105,3 +105,20 @@ class RNNT(tf.keras.Model):
             return logits, ctc_logits
         else:
             return logits
+
+    def get_config(self):
+        config = super(RNNT, self).get_config()
+        config.update({
+            "use_cmvn": self.use_cmvn,
+            "window_size": self.window_size,
+            "num_features": self.num_features,
+        })
+        config.update(self.encoder.get_config())
+        config.update(self.decoder.get_config())
+        config.update(self.jointer.get_config())
+        config.update(self.ctc_lin.get_config()) if self.ctc_lin else None
+        config.update(self.lm_lin.get_config()) if self.lm_lin else None
+        config.update(self.audio_preprocess.get_config()) if self.audio_preprocess else None
+        config.update(self.ctc_dropout.get_config())
+        config.update(self.cmvn.get_config()) if self.cmvn else None
+        return config

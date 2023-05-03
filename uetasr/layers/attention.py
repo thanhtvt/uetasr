@@ -131,6 +131,16 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             k, perm=[0, 1, 3, 2])) / tf.math.sqrt(self.d_k * 1.0)
         return self.compute_attention(v, scores, mask, training=training)
 
+    def get_config(self):
+        conf = super(MultiHeadAttention, self).get_config()
+        conf.update({"n_head": self.h, "d_k": self.d_k})
+        conf.update(self.linear_q.get_config())
+        conf.update(self.linear_k.get_config())
+        conf.update(self.linear_v.get_config())
+        conf.update(self.linear_out.get_config())
+        conf.update(self.dropout.get_config())
+        return conf
+
 
 class RelPositionMultiHeadAttention(MultiHeadAttention):
     """Multi-Head Attention layer with relative position encoding.
@@ -259,3 +269,12 @@ class RelPositionMultiHeadAttention(MultiHeadAttention):
                                       scores,
                                       mask,
                                       training=training)
+
+    def get_config(self):
+        conf = super(RelPositionMultiHeadAttention, self).get_config()
+        conf.update({"zero_triu": self.zero_triu})
+        conf.update(self.linear_out.get_config())
+        conf.update(self.linear_pos.get_config())
+        conf.update({"pos_bias_u": self.pos_bias_u})
+        conf.update({"pos_bias_v": self.pos_bias_v})
+        return conf

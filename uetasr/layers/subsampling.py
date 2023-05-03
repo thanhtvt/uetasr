@@ -47,6 +47,13 @@ class Conv2DSubsampling(tf.keras.layers.Layer):
         x = tf.nn.relu(x)
         return x
 
+    def get_config(self):
+        config = super(Conv2DSubsampling, self).get_config()
+        config.update({"time_reduction_factor": self.time_reduction_factor})
+        config.update(self.conv1.get_config())
+        config.update(self.conv2.get_config())
+        return config
+
 
 class Conv2dSubsamplingV2(tf.keras.layers.Layer):
     """Convolutional 2D subsampling (to 1/4 length).
@@ -114,3 +121,10 @@ class Conv2dSubsamplingV2(tf.keras.layers.Layer):
         if x_mask is None:
             return x, None
         return x, x_mask[:, :, :-2:2][:, :, :-2:2]
+
+    def get_config(self):
+        config = super(Conv2dSubsamplingV2, self).get_config()
+        config.update(self.conv.get_config())
+        config.update(self.out.get_config())
+        config.update(self.pos_enc.get_config())
+        return config

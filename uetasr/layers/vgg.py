@@ -124,6 +124,17 @@ class VGG2L(tf.keras.layers.Layer):
 
         return vgg_mask
 
+    def get_config(self):
+        conf = super(VGG2L, self).get_config()
+        conf.update({
+            "input_dim": self.input_dim,
+            "subsampling_factor": self.subsampling_factor,
+        })
+        conf.update(self.vgg2l.get_config())
+        conf.update(self.out.get_config()) if self.out else None
+        conf.update(self.pos_enc.get_config()) if self.pos_enc else None
+        return conf
+
 
 class VGG2LV2(tf.keras.layers.Layer):
 
@@ -238,3 +249,14 @@ class VGG2LV2(tf.keras.layers.Layer):
         vgg_mask = vgg_mask[:, :, :vgg2_t_len][:, :, ::2]
 
         return vgg_mask
+
+    def get_config(self):
+        conf = super(VGG2LV2, self).get_config()
+        conf.update({
+            "dim_input": self.dim_input,
+            "subsampling_factor": self.subsampling_factor,
+        })
+        conf.update(self.vgg2l.get_config())
+        conf.update(self.out.get_config()) if self.out else None
+        conf.update(self.pos_enc.get_config()) if self.pos_enc else None
+        return conf

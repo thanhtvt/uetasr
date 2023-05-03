@@ -54,3 +54,13 @@ class CTC(tf.keras.Model):
         logits = self.encoder(feature, training=training)
         logits.length = feature_length
         return logits
+
+    def get_config(self):
+        config = super(CTC, self).get_config()
+        config.update({
+            "window_size": self.window_size,
+            "num_features": self.num_features,
+        })
+        config.update(self.encoder.get_config())
+        config.update(self.audio_preprocess.get_config()) if self.audio_preprocess else None
+        return config

@@ -13,6 +13,11 @@ class GLU(tf.keras.layers.Layer):
         b = tf.nn.sigmoid(b)
         return tf.multiply(a, b)
 
+    def get_config(self):
+        conf = super(GLU, self).get_config()
+        conf.update({'axis': self.axis})
+        return conf
+
 
 class ConvolutionModule(tf.keras.layers.Layer):
     """ConvolutionModule in Conformer model.
@@ -101,3 +106,17 @@ class ConvolutionModule(tf.keras.layers.Layer):
 
         x = self.pointwise_conv2(x, training=training)
         return x
+
+    def get_config(self):
+        conf = super(ConvolutionModule, self).get_config()
+        conf.update({
+            "channels": self.channels,
+            "kernel_size": self.kernel_size,
+        })
+        conf.update(self.activation.get_config())
+        conf.update(self.pointwise_conv1.get_config())
+        conf.update(self.depthwise_conv.get_config())
+        conf.update(self.glu.get_config())
+        conf.update(self.norm.get_config())
+        conf.update(self.pointwise_conv2.get_config())
+        return conf

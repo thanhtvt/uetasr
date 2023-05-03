@@ -48,6 +48,15 @@ class RMSLayerNormalization(tf.keras.layers.Layer):
             return norm_x + self.offset
         return norm_x
 
+    def get_config(self):
+        config = super(RMSLayerNormalization, self).get_config()
+        config.update({
+            'epsilon': self.epsilon,
+            'p': self.p,
+            'bias': self.bias
+        })
+        return config
+
 
 @tf.keras.utils.register_keras_serializable()
 class AccumBatchNormalization(tf.keras.layers.Layer):
