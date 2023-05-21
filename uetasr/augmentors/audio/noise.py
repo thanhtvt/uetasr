@@ -24,7 +24,7 @@ class GaussianNoise(PreprocessingLayer):
     ) -> tf.Tensor:
         snr = tf.random.uniform(shape=(),
                                 minval=self.min_gaussian_snr,
-                                maxval=self.min_gaussian_snr,
+                                maxval=self.max_gaussian_snr,
                                 dtype=tf.float32)
         rms = tf.math.sqrt(tf.math.reduce_mean(tf.math.square(audio)))
         noise_rms = rms / (10**(snr / 20))
